@@ -14,6 +14,7 @@ public partial class VaultUnlockViewModel : ObservableObject
     private string setupMode = "false";
     [ObservableProperty] private string masterPassword = string.Empty;
     [ObservableProperty] private string confirmMasterPassword = string.Empty;
+    [ObservableProperty] private bool isPasswordVisible;
     [ObservableProperty] private string? errorMessage;
     [ObservableProperty] private bool isBusy;
 
@@ -23,6 +24,9 @@ public partial class VaultUnlockViewModel : ObservableObject
     {
         _auth = auth;
     }
+
+    [RelayCommand]
+    private void TogglePasswordVisible() => IsPasswordVisible = !IsPasswordVisible;
 
     [RelayCommand]
     private async Task ConfirmAsync()
@@ -61,7 +65,8 @@ public partial class VaultUnlockViewModel : ObservableObject
 
             // VaultTreePage triggers its own sync on appearing - avoid a second concurrent
             // sync here, which previously corrupted the local cache's SQLite transaction state.
-            await Shell.Current.GoToAsync(nameof(Views.VaultTreePage));
+            // Absolute route: VaultTreePage is now a real flyout section, not a pushed page.
+            await Shell.Current.GoToAsync($"//{nameof(Views.VaultTreePage)}");
         }
         catch (Exception ex)
         {

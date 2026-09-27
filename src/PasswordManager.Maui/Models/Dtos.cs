@@ -42,3 +42,4 @@ public record UpdateSiteGroupRequest(string Name, string? Description);
 public record AccessGrantDto(Guid UserId, string UserEmail, Guid SiteGroupId, AccessRole Role, DateTimeOffset GrantedAt);
 public record GrantAccessRequest(Guid UserId, AccessRole Role, string EncryptedGroupKey);
 public record UpdateAccessRoleRequest(AccessRole Role);
+public record UserAccessDto(Guid SiteGroupId, string SiteGroupName, AccessRole Role);

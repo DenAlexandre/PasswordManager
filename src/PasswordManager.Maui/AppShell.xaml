@@ -10,6 +10,15 @@
     <ShellContent
         Title="Connexion"
         ContentTemplate="{DataTemplate views:LoginPage}"
-        Route="LoginPage" />
+        Route="LoginPage"
+        Shell.FlyoutBehavior="Disabled" />
+
+    <FlyoutItem Title="Coffre" Route="VaultSection">
+        <ShellContent ContentTemplate="{DataTemplate views:VaultTreePage}" Route="VaultTreePage" />
+    </FlyoutItem>
+
+    <FlyoutItem x:Name="UsersFlyoutItem" Title="Gestion des utilisateurs" Route="AdminUsersSection" IsVisible="False">
+        <ShellContent ContentTemplate="{DataTemplate views:AdminUsersPage}" Route="AdminUsersPage" />
+    </FlyoutItem>
 
 </Shell>

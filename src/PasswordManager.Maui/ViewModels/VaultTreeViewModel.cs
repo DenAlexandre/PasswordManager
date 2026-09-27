@@ -25,7 +25,6 @@ public partial class VaultTreeViewModel : ObservableObject
     private ILookup<Guid, CachedCredential> _credentialsByFolder = Enumerable.Empty<CachedCredential>().ToLookup(c => c.SiteId);
 
     [ObservableProperty] private bool isBusy;
-    [ObservableProperty] private bool isAdmin;
     [ObservableProperty] private string? errorMessage;
 
     public ObservableCollection<VaultTreeRow> Rows { get; } = new();
@@ -37,7 +36,6 @@ public partial class VaultTreeViewModel : ObservableObject
         _session = session;
         _auth = auth;
         _api = api;
-        IsAdmin = session.IsAdmin;
     }
 
     [RelayCommand]
@@ -265,7 +263,95 @@ public partial class VaultTreeViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task OpenAdminAsync() => await Shell.Current.GoToAsync(nameof(Views.AdminSiteGroupsPage));
+    private async Task EditNodeAsync(VaultTreeRow row)
+    {
+        var page = Application.Current?.Windows[0].Page;
+        if (page is null || row.Kind == TreeRowKind.Entry) return;
+
+        if (row.Kind == TreeRowKind.Group)
+        {
+            var groupName = await page.DisplayPromptAsync("Modifier le groupe", "Nom du groupe", initialValue: row.Name);
+            if (string.IsNullOrWhiteSpace(groupName)) return;
+
+            var groupUpdated = await _api.UpdateSiteGroupAsync(row.Id, new UpdateSiteGroupRequest(groupName, null));
+            if (!groupUpdated)
+            {
+                await page.DisplayAlert("Erreur", "Impossible de modifier le groupe (êtes-vous en ligne ?).", "OK");
+                return;
+            }
+            await LoadAsync();
+            return;
+        }
+
+        var name = await page.DisplayPromptAsync("Modifier le dossier", "Nom du dossier", initialValue: row.Name);
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var url = await page.DisplayPromptAsync("Modifier le dossier", "URL (optionnel)", initialValue: row.Subtitle);
+
+        var updated = await _api.UpdateSiteAsync(row.GroupId, row.Id, new UpsertSiteRequest(name, url, null, row.ParentFolderId));
+        if (!updated)
+        {
+            await page.DisplayAlert("Erreur", "Impossible de modifier le dossier (êtes-vous en ligne ?).", "OK");
+            return;
+        }
+        await LoadAsync();
+    }
+
+    [RelayCommand]
+    private async Task DeleteNodeAsync(VaultTreeRow row)
+    {
+        var page = Application.Current?.Windows[0].Page;
+        if (page is null || row.Kind == TreeRowKind.Entry) return;
+
+        if (row.Kind == TreeRowKind.Group)
+        {
+            var confirmGroup = await page.DisplayAlert("Confirmer la suppression",
+                $"Supprimer le groupe « {row.Name} » ? Il doit être vide (pas de dossier à l'intérieur). " +
+                "Cela retire aussi l'accès de tous les utilisateurs à ce groupe.",
+                "Supprimer", "Annuler");
+            if (!confirmGroup) return;
+
+            var (groupSuccess, groupError) = await _api.DeleteSiteGroupWithReasonAsync(row.Id);
+            if (!groupSuccess)
+            {
+                await page.DisplayAlert("Erreur", groupError ?? "Impossible de supprimer le groupe.", "OK");
+                return;
+            }
+            await LoadAsync();
+            return;
+        }
+
+        var confirm = await page.DisplayAlert("Confirmer la suppression",
+            $"Supprimer le dossier « {row.Name} » ? Il doit être vide (pas de sous-dossier ni de mot de passe).",
+            "Supprimer", "Annuler");
+        if (!confirm) return;
+
+        var (success, error) = await _api.DeleteSiteWithReasonAsync(row.GroupId, row.Id);
+        if (!success)
+        {
+            await page.DisplayAlert("Erreur", error ?? "Impossible de supprimer le dossier.", "OK");
+            return;
+        }
+        await LoadAsync();
+    }
+
+    [RelayCommand]
+    private async Task DeleteEntryAsync(VaultTreeRow row)
+    {
+        var page = Application.Current?.Windows[0].Page;
+        if (page is null || row.Kind != TreeRowKind.Entry) return;
+
+        var confirm = await page.DisplayAlert("Confirmer la suppression",
+            $"Supprimer le mot de passe « {row.Name} » ? Cette action est irréversible.", "Supprimer", "Annuler");
+        if (!confirm) return;
+
+        var deleted = await _api.DeleteCredentialAsync(row.ParentFolderId!.Value, row.Id);
+        if (!deleted)
+        {
+            await page.DisplayAlert("Erreur", "Impossible de supprimer (êtes-vous en ligne ?).", "OK");
+            return;
+        }
+        await LoadAsync();
+    }
 
     [RelayCommand]
     private async Task LogoutAsync()

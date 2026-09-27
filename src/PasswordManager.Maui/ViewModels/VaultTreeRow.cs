@@ -35,6 +35,7 @@ public partial class VaultTreeRow : ObservableObject
 
     public bool IsEntry => Kind == TreeRowKind.Entry;
     public bool CanAddChild => CanWrite && Kind != TreeRowKind.Entry;
+    public bool CanManageNode => CanWrite && Kind != TreeRowKind.Entry;
     public string Chevron => Kind == TreeRowKind.Entry ? string.Empty : IsExpanded ? "▾" : "▸";
     public double Indent => 12 + Depth * 24;
     public Microsoft.Maui.Controls.FontAttributes RowFontAttributes =>

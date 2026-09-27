@@ -26,3 +26,5 @@ public record AccessGrantDto(Guid UserId, string UserEmail, Guid SiteGroupId, Ac
 public record GrantAccessRequest(Guid UserId, AccessRole Role, string EncryptedGroupKey);
 
 public record UpdateAccessRoleRequest(AccessRole Role);
+
+public record UserAccessDto(Guid SiteGroupId, string SiteGroupName, AccessRole Role);

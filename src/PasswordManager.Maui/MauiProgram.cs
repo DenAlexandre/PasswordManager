@@ -43,6 +43,7 @@ public static class MauiProgram
 			api.SetBaseAddress(AppSettings.ApiBaseUrl);
 			return api;
 		});
+		builder.Services.AddTransient<AppShell>();
 		builder.Services.AddSingleton<VaultSession>();
 		builder.Services.AddSingleton<LocalCacheDb>();
 		builder.Services.AddSingleton<AuthService>();
@@ -58,8 +59,6 @@ public static class MauiProgram
 		builder.Services.AddTransient<CredentialEditPage>();
 		builder.Services.AddTransient<AdminUsersViewModel>();
 		builder.Services.AddTransient<AdminUsersPage>();
-		builder.Services.AddTransient<AdminSiteGroupsViewModel>();
-		builder.Services.AddTransient<AdminSiteGroupsPage>();
 
 		return builder.Build();
 	}

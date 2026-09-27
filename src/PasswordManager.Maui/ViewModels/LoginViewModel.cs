@@ -10,6 +10,7 @@ public partial class LoginViewModel : ObservableObject
 
     [ObservableProperty] private string email = string.Empty;
     [ObservableProperty] private string password = string.Empty;
+    [ObservableProperty] private bool isPasswordVisible;
     [ObservableProperty] private string? errorMessage;
     [ObservableProperty] private bool isBusy;
 
@@ -17,6 +18,9 @@ public partial class LoginViewModel : ObservableObject
     {
         _auth = auth;
     }
+
+    [RelayCommand]
+    private void TogglePasswordVisible() => IsPasswordVisible = !IsPasswordVisible;
 
     [RelayCommand]
     private async Task LoginAsync()

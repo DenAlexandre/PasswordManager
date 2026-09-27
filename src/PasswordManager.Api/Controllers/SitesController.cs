@@ -89,6 +89,14 @@ public class SitesController : ApiControllerBase
         var site = await _db.Sites.SingleOrDefaultAsync(s => s.Id == siteId && s.SiteGroupId == siteGroupId);
         if (site is null) return NotFound();
 
+        // Refuse rather than cascade: silently orphaning sub-folders/credentials would make them
+        // unreachable in the tree (still in the DB, still billable to the group's key) with no
+        // warning to the user. Require emptying the folder first.
+        var hasChildFolders = await _db.Sites.AnyAsync(s => s.ParentSiteId == siteId && !s.IsDeleted);
+        var hasCredentials = await _db.Credentials.AnyAsync(c => c.SiteId == siteId && !c.IsDeleted);
+        if (hasChildFolders || hasCredentials)
+            return Conflict("Ce dossier n'est pas vide : supprimez d'abord son contenu.");
+
         site.IsDeleted = true;
         site.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();

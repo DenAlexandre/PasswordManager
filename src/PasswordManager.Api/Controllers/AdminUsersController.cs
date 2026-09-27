@@ -65,4 +65,30 @@ public class AdminUsersController : ApiControllerBase
         await _db.SaveChangesAsync();
         return NoContent();
     }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        if (id == CurrentUserId) return BadRequest("Vous ne pouvez pas supprimer votre propre compte.");
+
+        var user = await _db.Users.FindAsync(id);
+        if (user is null) return NotFound();
+
+        _db.Users.Remove(user); // cascades to UserSiteGroupAccesses (see AppDbContext)
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    // Reverse lookup of AdminSiteGroupsController's per-group access list - lets the admin UI
+    // show "which groups does this user have access to" on a user-centric management screen.
+    [HttpGet("{id:guid}/access")]
+    public async Task<ActionResult<List<UserAccessDto>>> GetAccess(Guid id)
+    {
+        var access = await _db.UserSiteGroupAccesses
+            .Where(a => a.UserId == id)
+            .Include(a => a.SiteGroup)
+            .Select(a => new UserAccessDto(a.SiteGroupId, a.SiteGroup!.Name, a.Role))
+            .ToListAsync();
+        return Ok(access);
+    }
 }

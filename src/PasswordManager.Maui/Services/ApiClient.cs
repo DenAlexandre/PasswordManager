@@ -78,6 +78,14 @@ public class ApiClient
     public Task<bool> DeleteSiteAsync(Guid siteGroupId, Guid siteId) =>
         DeleteAsync($"api/sitegroups/{siteGroupId}/sites/{siteId}");
 
+    // Surfaces the server's reason (e.g. "folder not empty") instead of collapsing it to a bool.
+    public async Task<(bool Success, string? Error)> DeleteSiteWithReasonAsync(Guid siteGroupId, Guid siteId)
+    {
+        var response = await _http.DeleteAsync($"api/sitegroups/{siteGroupId}/sites/{siteId}");
+        if (response.IsSuccessStatusCode) return (true, null);
+        return (false, await response.Content.ReadAsStringAsync());
+    }
+
     // --- Credentials ---
     public Task<List<CredentialDto>?> GetCredentialsAsync(Guid siteId) =>
         GetAsync<List<CredentialDto>>($"api/sites/{siteId}/credentials");
@@ -101,14 +109,30 @@ public class ApiClient
     public Task<bool> UpdateUserAsync(Guid id, UpdateUserRequest request) =>
         PutAsync($"api/admin/users/{id}", request);
 
+    public Task<List<UserAccessDto>?> GetUserAccessAsync(Guid userId) =>
+        GetAsync<List<UserAccessDto>>($"api/admin/users/{userId}/access");
+
+    public Task<bool> DeleteUserAsync(Guid id) =>
+        DeleteAsync($"api/admin/users/{id}");
+
     public Task<List<SiteGroupDto>?> GetSiteGroupsAsync() =>
         GetAsync<List<SiteGroupDto>>("api/admin/sitegroups");
 
     public Task<SiteGroupDto?> CreateSiteGroupAsync(CreateSiteGroupRequest request) =>
         PostAsync<SiteGroupDto>("api/admin/sitegroups", request);
 
+    public Task<bool> UpdateSiteGroupAsync(Guid id, UpdateSiteGroupRequest request) =>
+        PutAsync($"api/admin/sitegroups/{id}", request);
+
     public Task<bool> DeleteSiteGroupAsync(Guid id) =>
         DeleteAsync($"api/admin/sitegroups/{id}");
+
+    public async Task<(bool Success, string? Error)> DeleteSiteGroupWithReasonAsync(Guid id)
+    {
+        var response = await _http.DeleteAsync($"api/admin/sitegroups/{id}");
+        if (response.IsSuccessStatusCode) return (true, null);
+        return (false, await response.Content.ReadAsStringAsync());
+    }
 
     public Task<List<AccessGrantDto>?> GetAccessAsync(Guid siteGroupId) =>
         GetAsync<List<AccessGrantDto>>($"api/admin/sitegroups/{siteGroupId}/access");
@@ -121,6 +145,10 @@ public class ApiClient
 
     public Task<bool> RevokeAccessAsync(Guid siteGroupId, Guid userId) =>
         DeleteAsync($"api/admin/sitegroups/{siteGroupId}/access/{userId}");
+
+    // Role-only change - no re-wrapping needed, the group key stays the same.
+    public Task<bool> UpdateAccessRoleAsync(Guid siteGroupId, Guid userId, UpdateAccessRoleRequest request) =>
+        PutAsync($"api/admin/sitegroups/{siteGroupId}/access/{userId}", request);
 
     private async Task<T?> GetAsync<T>(string url)
     {

@@ -67,6 +67,11 @@ public class AdminSiteGroupsController : ApiControllerBase
         var group = await _db.SiteGroups.FindAsync(id);
         if (group is null) return NotFound();
 
+        // Deleting a group hard-deletes everything inside it (sites/credentials cascade) for every
+        // member - require it to be emptied first rather than silently wiping data.
+        if (await _db.Sites.AnyAsync(s => s.SiteGroupId == id && !s.IsDeleted))
+            return Conflict("Ce groupe n'est pas vide : supprimez d'abord ses dossiers.");
+
         _db.SiteGroups.Remove(group);
         await _db.SaveChangesAsync();
         return NoContent();

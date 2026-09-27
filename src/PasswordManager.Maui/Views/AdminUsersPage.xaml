@@ -4,25 +4,74 @@
              xmlns:vm="clr-namespace:PasswordManager.Maui.ViewModels"
              x:Class="PasswordManager.Maui.Views.AdminUsersPage"
              x:DataType="vm:AdminUsersViewModel"
-             Title="Utilisateurs">
+             Title="Gestion des utilisateurs">
     <ContentPage.ToolbarItems>
         <ToolbarItem Text="+" Command="{Binding AddUserCommand}" />
-        <ToolbarItem Text="Groupes" Command="{Binding GoToGroupsCommand}" />
     </ContentPage.ToolbarItems>
-    <Grid RowDefinitions="Auto,*">
-        <Label Grid.Row="0" Text="{Binding ErrorMessage}" TextColor="Red" Padding="16,8"
-               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
-        <RefreshView Grid.Row="1" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
-            <CollectionView ItemsSource="{Binding Users}" SelectionMode="None">
+
+    <Grid ColumnDefinitions="280,1,*">
+        <!-- Master: users -->
+        <Grid Grid.Column="0" RowDefinitions="Auto,*">
+            <Label Grid.Row="0" Text="{Binding ErrorMessage}" TextColor="Red" Padding="12,8"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+            <RefreshView Grid.Row="1" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+                <CollectionView ItemsSource="{Binding Users}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AdminUserItem">
+                            <Grid Padding="12,10" ColumnDefinitions="*,Auto,Auto">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminUsersViewModel}}, Path=SelectUserCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <VerticalStackLayout Grid.Column="0">
+                                    <Label Text="{Binding Email}" FontSize="15" />
+                                    <Label Text="{Binding StatusLabel}" FontSize="11" TextColor="Gray" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="✎" Padding="6,0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminUsersViewModel}}, Path=EditUserCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Grid.Column="2" Text="🗑" Padding="6,0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminUsersViewModel}}, Path=DeleteUserCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </RefreshView>
+        </Grid>
+
+        <BoxView Grid.Column="1" WidthRequest="1" Color="LightGray" />
+
+        <!-- Detail: selected user's site-group access -->
+        <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*" Padding="16">
+            <Label Grid.Row="0" Text="{Binding SelectedUser.Email}" FontSize="18" FontAttributes="Bold"
+                   IsVisible="{Binding HasSelectedUser}" />
+            <Label Grid.Row="0" Text="Sélectionnez un utilisateur dans la liste"
+                   TextColor="Gray" IsVisible="{Binding HasSelectedUser, Converter={StaticResource InvertedBoolConverter}}" />
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,12,0,4" IsVisible="{Binding HasSelectedUser}">
+                <Label Grid.Column="0" Text="Accès aux groupes de sites" FontAttributes="Bold" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="Ajouter un accès" Command="{Binding GrantAccessCommand}" />
+            </Grid>
+
+            <CollectionView Grid.Row="2" ItemsSource="{Binding SelectedUserAccess}" SelectionMode="None"
+                             IsVisible="{Binding HasSelectedUser}">
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="vm:AdminUserItem">
-                        <VerticalStackLayout Padding="16,12">
-                            <Label Text="{Binding Email}" FontSize="16" />
-                            <Label Text="{Binding StatusLabel}" FontSize="12" TextColor="Gray" />
-                        </VerticalStackLayout>
+                    <DataTemplate x:DataType="vm:UserAccessItem">
+                        <Grid Padding="0,8" ColumnDefinitions="*,Auto,Auto,Auto">
+                            <Label Grid.Column="0" Text="{Binding SiteGroupName}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding RoleLabel}" TextColor="Gray" Margin="8,0" VerticalOptions="Center" />
+                            <Button Grid.Column="2" Text="Modifier" Padding="8,0"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminUsersViewModel}}, Path=EditAccessRoleCommand}"
+                                    CommandParameter="{Binding .}" />
+                            <Button Grid.Column="3" Text="Retirer" Padding="8,0"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminUsersViewModel}}, Path=RevokeAccessCommand}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
-        </RefreshView>
+        </Grid>
     </Grid>
 </ContentPage>

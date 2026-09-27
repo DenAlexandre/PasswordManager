@@ -1,17 +1,19 @@
+using PasswordManager.Maui.Services;
 using PasswordManager.Maui.Views;
 
 namespace PasswordManager.Maui;
 
 public partial class AppShell : Shell
 {
-    public AppShell()
+    public AppShell(VaultSession session)
     {
         InitializeComponent();
 
         Routing.RegisterRoute(nameof(VaultUnlockPage), typeof(VaultUnlockPage));
-        Routing.RegisterRoute(nameof(VaultTreePage), typeof(VaultTreePage));
         Routing.RegisterRoute(nameof(CredentialEditPage), typeof(CredentialEditPage));
-        Routing.RegisterRoute(nameof(AdminUsersPage), typeof(AdminUsersPage));
-        Routing.RegisterRoute(nameof(AdminSiteGroupsPage), typeof(AdminSiteGroupsPage));
+
+        // The admin flyout entry only makes sense once we know who's logged in - re-evaluate on
+        // every navigation so login/logout/switching accounts keeps the menu in sync.
+        Navigated += (_, _) => UsersFlyoutItem.IsVisible = session.IsAdmin;
     }
 }
