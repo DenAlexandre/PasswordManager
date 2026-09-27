@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="PasswordManager.Maui.Views.VaultUnlockPage"
+             Title="Coffre">
+    <VerticalStackLayout Padding="24" Spacing="16" VerticalOptions="Center">
+        <Label Text="Créer votre mot de passe maître" FontSize="20" IsVisible="{Binding IsSetup}" />
+        <Label Text="Déverrouiller le coffre" FontSize="20" IsVisible="{Binding IsSetup, Converter={StaticResource InvertedBoolConverter}}" />
+        <Label Text="Ce mot de passe ne quitte jamais votre appareil. Il ne peut pas être récupéré en cas d'oubli." FontSize="12" />
+        <Entry Placeholder="Mot de passe maître" Text="{Binding MasterPassword}" IsPassword="True" />
+        <Entry Placeholder="Confirmer le mot de passe maître" Text="{Binding ConfirmMasterPassword}" IsPassword="True" IsVisible="{Binding IsSetup}" />
+        <Button Text="Valider" Command="{Binding ConfirmCommand}" />
+        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+        <Label Text="{Binding ErrorMessage}" TextColor="Red" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+    </VerticalStackLayout>
+</ContentPage>

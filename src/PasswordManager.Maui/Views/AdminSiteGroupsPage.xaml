@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PasswordManager.Maui.ViewModels"
+             x:Class="PasswordManager.Maui.Views.AdminSiteGroupsPage"
+             x:DataType="vm:AdminSiteGroupsViewModel"
+             Title="Groupes de sites (admin)">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="+" Command="{Binding AddGroupCommand}" />
+    </ContentPage.ToolbarItems>
+    <Grid RowDefinitions="Auto,*,Auto,*" Padding="0">
+        <Label Grid.Row="0" Text="{Binding ErrorMessage}" TextColor="Red" Padding="16,8"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Groups}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:AdminGroupItem">
+                    <Grid Padding="16,12">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AdminSiteGroupsViewModel}}, Path=OpenGroupCommand}" CommandParameter="{Binding .}" />
+                        </Grid.GestureRecognizers>
+                        <Label Text="{Binding Name}" FontSize="16" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <BoxView Grid.Row="2" HeightRequest="1" Color="LightGray" />
+
+        <Grid Grid.Row="3" RowDefinitions="Auto,*">
+            <Grid Grid.Row="0" Padding="16,8" ColumnDefinitions="*,Auto">
+                <Label Grid.Column="0" Text="{Binding SelectedGroupName}" FontAttributes="Bold" />
+                <Button Grid.Column="1" Text="Ajouter un accès" Command="{Binding GrantAccessCommand}" />
+            </Grid>
+            <CollectionView Grid.Row="1" ItemsSource="{Binding AccessGrants}" SelectionMode="None">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AdminAccessItem">
+                        <Grid Padding="16,8" ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0" Text="{Binding Email}" />
+                            <Label Grid.Column="1" Text="{Binding RoleLabel}" TextColor="Gray" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+    </Grid>
+</ContentPage>

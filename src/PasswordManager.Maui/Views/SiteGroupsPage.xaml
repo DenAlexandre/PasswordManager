@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PasswordManager.Maui.ViewModels"
+             x:Class="PasswordManager.Maui.Views.SiteGroupsPage"
+             x:DataType="vm:SiteGroupsViewModel"
+             Title="Groupes de sites">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Admin" Command="{Binding OpenAdminCommand}" IsEnabled="{Binding IsAdmin}" />
+        <ToolbarItem Text="Déconnexion" Command="{Binding LogoutCommand}" />
+    </ContentPage.ToolbarItems>
+    <Grid RowDefinitions="Auto,*">
+        <Label Grid.Row="0" Text="{Binding ErrorMessage}" TextColor="Red" Padding="16,8"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+        <RefreshView Grid.Row="1" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding SiteGroups}" SelectionMode="None">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SiteGroupItem">
+                        <Grid Padding="16,12" ColumnDefinitions="*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SiteGroupsViewModel}}, Path=OpenCommand}" CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="{Binding Name}" FontSize="16" Grid.Column="0" />
+                            <Label Text="{Binding RoleLabel}" FontSize="12" TextColor="Gray" Grid.Column="1" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>
