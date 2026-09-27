@@ -4,6 +4,8 @@
 
 - SDK .NET 10 avec le workload `maui-windows` installé (`dotnet workload list` doit le lister).
 - Windows 10/11 avec le SDK `10.0.19041.0` (installé avec Visual Studio ou via le workload MAUI).
+- Sur les postes cibles : le **.NET 10 Desktop Runtime (x64)** doit être installé (build
+  *framework-dependent*, voir plus bas) — [téléchargement officiel](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ## Publier
 
@@ -11,10 +13,15 @@
 ./publish.ps1
 ```
 
-Produit un build **autonome (self-contained), non empaqueté** (pas de MSIX, pas de Microsoft
-Store, pas besoin d'installer le runtime .NET sur le poste cible) dans `deploy/Windows/output/`.
-Exécutable à distribuer : `output/PasswordManager.Maui.exe` (+ tout le contenu du dossier, à
-copier ensemble).
+Produit un build **framework-dependent, non empaqueté** (pas de MSIX, pas de Microsoft Store)
+dans `deploy/Windows/output/`. Exécutable à distribuer : `output/PasswordManager.Maui.exe` (+
+tout le contenu du dossier, à copier ensemble).
+
+Un build **self-contained** (n'exigeant aucun runtime préinstallé sur le poste cible) serait
+préférable pour une diffusion large, mais échoue actuellement sur ce projet avec `NU1102`
+(tente de résoudre un paquet de runtime Mono pour `win-x64`, qui ne s'applique pas à une cible
+desktop WinUI/CoreCLR — probablement un bug/edge-case du SDK MAUI multi-cible). À réessayer avec
+une version ultérieure du SDK avant une diffusion externe plus large.
 
 ## Points d'attention
 
