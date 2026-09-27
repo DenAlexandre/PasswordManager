@@ -47,6 +47,7 @@ public class CachedCredential
     public string EncryptedLabel { get; set; } = string.Empty;
     public string EncryptedUsername { get; set; } = string.Empty;
     public string EncryptedPassword { get; set; } = string.Empty;
+    public string? EncryptedUrl { get; set; }
     public string? EncryptedNotes { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public bool IsDeleted { get; set; }

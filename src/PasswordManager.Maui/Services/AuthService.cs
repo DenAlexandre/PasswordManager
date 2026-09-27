@@ -6,6 +6,8 @@ namespace PasswordManager.Maui.Services;
 
 public enum LoginOutcome { InvalidCredentials, VaultSetupRequired, NeedsUnlock }
 
+public enum SessionRestoreResult { NoSession, VaultSetupRequired, VaultReady }
+
 public class AuthService
 {
     private const string TokenKey = "access_token";
@@ -37,32 +39,36 @@ public class AuthService
         return response.VaultSetupRequired ? LoginOutcome.VaultSetupRequired : LoginOutcome.NeedsUnlock;
     }
 
-    // Restores a previously authenticated session (app relaunch) without re-entering the login password.
-    public async Task<bool> TryRestoreSessionAsync()
+    // Restores a previously authenticated session (app relaunch) without re-entering the login
+    // password, and checks whether the vault still needs first-time setup. An expired/invalid
+    // token (401) forces a real re-login rather than being misread as "vault not set up yet" -
+    // those are two very different situations that must not be confused.
+    public async Task<SessionRestoreResult> TryRestoreSessionAsync()
     {
         var token = await SecureStorage.GetAsync(TokenKey);
         var userIdStr = await SecureStorage.GetAsync(UserIdKey);
         var isAdminStr = await SecureStorage.GetAsync(IsAdminKey);
-        if (token is null || userIdStr is null || !Guid.TryParse(userIdStr, out var userId)) return false;
+        if (token is null || userIdStr is null || !Guid.TryParse(userIdStr, out var userId))
+            return SessionRestoreResult.NoSession;
 
         _api.SetAccessToken(token);
         _session.SetIdentity(userId, bool.TryParse(isAdminStr, out var isAdmin) && isAdmin);
-        return true;
-    }
 
-    // A restored session doesn't tell us whether this user ever finished vault setup - ask the
-    // server (falls back to the local cache's identity record when offline).
-    public async Task<bool> IsVaultSetupRequiredAsync()
-    {
-        var keyMaterial = await _api.GetKeyMaterialAsync();
-        if (keyMaterial is not null) return false;
+        var (unauthorized, keyMaterial) = await _api.GetKeyMaterialWithAuthCheckAsync();
+        if (unauthorized)
+        {
+            await LogoutAsync();
+            return SessionRestoreResult.NoSession;
+        }
+        if (keyMaterial is not null) return SessionRestoreResult.VaultReady;
 
+        // Server unreachable (offline) - fall back to whatever the local cache already knows.
         var cached = await _cache.GetIdentityAsync();
-        return cached is null;
+        return cached is not null ? SessionRestoreResult.VaultReady : SessionRestoreResult.VaultSetupRequired;
     }
 
     // First-time vault creation: generates the RSA keypair locally and uploads only ciphertext + public key.
-    public async Task SetupVaultAsync(string masterPassword)
+    public async Task<bool> SetupVaultAsync(string masterPassword)
     {
         var (publicKeyPem, privateKeyDer) = RsaKeyWrapping.GenerateKeyPair();
         var salt = KeyDerivation.NewSalt();
@@ -71,8 +77,9 @@ public class AuthService
         var masterKey = KeyDerivation.DeriveMasterKey(masterPassword, salt, iterations, memoryKb, parallelism);
         var encryptedPrivateKey = AesGcmCipher.EncryptBytes(masterKey, privateKeyDer);
 
-        await _api.SetupVaultAsync(new VaultSetupRequest(
+        var ok = await _api.SetupVaultAsync(new VaultSetupRequest(
             Convert.ToBase64String(salt), iterations, memoryKb, parallelism, publicKeyPem, encryptedPrivateKey));
+        if (!ok) return false;
 
         await _cache.SaveIdentityAsync(new CachedIdentity
         {
@@ -88,6 +95,7 @@ public class AuthService
         });
 
         _session.Unlock(privateKeyDer);
+        return true;
     }
 
     // Unlocks the vault. Tries the server first (to pick up the latest key material and refresh

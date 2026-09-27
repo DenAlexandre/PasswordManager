@@ -14,6 +14,7 @@ public partial class CredentialItem : ObservableObject
     public string Label { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    public string? Url { get; set; }
     public string? Notes { get; set; }
 
     [ObservableProperty]
@@ -29,7 +30,6 @@ public partial class CredentialItem : ObservableObject
 public partial class CredentialsViewModel : ObservableObject
 {
     private readonly LocalCacheDb _cache;
-    private readonly ApiClient _api;
     private readonly VaultSession _session;
 
     [ObservableProperty] private string siteId = string.Empty;
@@ -41,10 +41,9 @@ public partial class CredentialsViewModel : ObservableObject
 
     public ObservableCollection<CredentialItem> Credentials { get; } = new();
 
-    public CredentialsViewModel(LocalCacheDb cache, ApiClient api, VaultSession session)
+    public CredentialsViewModel(LocalCacheDb cache, VaultSession session)
     {
         _cache = cache;
-        _api = api;
         _session = session;
     }
 
@@ -82,6 +81,7 @@ public partial class CredentialsViewModel : ObservableObject
                         Label = AesGcmCipher.Decrypt(groupKey, c.EncryptedLabel),
                         Username = AesGcmCipher.Decrypt(groupKey, c.EncryptedUsername),
                         Password = AesGcmCipher.Decrypt(groupKey, c.EncryptedPassword),
+                        Url = c.EncryptedUrl is null ? null : AesGcmCipher.Decrypt(groupKey, c.EncryptedUrl),
                         Notes = c.EncryptedNotes is null ? null : AesGcmCipher.Decrypt(groupKey, c.EncryptedNotes)
                     });
                 }
@@ -120,41 +120,21 @@ public partial class CredentialsViewModel : ObservableObject
     [RelayCommand]
     private async Task AddCredentialAsync()
     {
-        var page = Application.Current?.Windows[0].Page;
-        if (page is null) return;
-
-        var label = await page.DisplayPromptAsync("Nouveau mot de passe", "Libellé (ex: Accès FTP)");
-        if (string.IsNullOrWhiteSpace(label)) return;
-        var username = await page.DisplayPromptAsync("Nouveau mot de passe", "Identifiant") ?? "";
-        var password = await page.DisplayPromptAsync("Nouveau mot de passe", "Mot de passe");
-        if (password is null) return;
-
-        var groups = await _cache.GetSiteGroupsAsync();
-        var group = groups.First(g => g.Id == GroupGuid);
-        var groupKey = _session.GetOrUnwrapGroupKey(group.Id, group.EncryptedGroupKey);
-
-        var request = new UpsertCredentialRequest(
-            AesGcmCipher.Encrypt(groupKey, label),
-            AesGcmCipher.Encrypt(groupKey, username),
-            AesGcmCipher.Encrypt(groupKey, password),
-            null);
-
-        var created = await _api.CreateCredentialAsync(SiteGuid, request);
-        if (created is null)
+        await Shell.Current.GoToAsync(nameof(Views.CredentialEditPage), new Dictionary<string, object>
         {
-            await page.DisplayAlert("Erreur", "Impossible d'enregistrer (êtes-vous en ligne ?).", "OK");
-            return;
-        }
-
-        await _cache.UpsertCredentialsAsync(new[]
-        {
-            new CachedCredential
-            {
-                Id = created.Id, SiteId = SiteGuid, EncryptedLabel = created.EncryptedLabel,
-                EncryptedUsername = created.EncryptedUsername, EncryptedPassword = created.EncryptedPassword,
-                EncryptedNotes = created.EncryptedNotes, UpdatedAt = created.UpdatedAt
-            }
+            ["siteId"] = SiteGuid,
+            ["siteGroupId"] = GroupGuid
         });
-        await LoadAsync();
+    }
+
+    [RelayCommand]
+    private async Task EditCredentialAsync(CredentialItem item)
+    {
+        await Shell.Current.GoToAsync(nameof(Views.CredentialEditPage), new Dictionary<string, object>
+        {
+            ["siteId"] = SiteGuid,
+            ["siteGroupId"] = GroupGuid,
+            ["item"] = item
+        });
     }
 }

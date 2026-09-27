@@ -48,6 +48,7 @@ public class SyncService
             EncryptedLabel = c.EncryptedLabel,
             EncryptedUsername = c.EncryptedUsername,
             EncryptedPassword = c.EncryptedPassword,
+            EncryptedUrl = c.EncryptedUrl,
             EncryptedNotes = c.EncryptedNotes,
             UpdatedAt = c.UpdatedAt,
             IsDeleted = c.IsDeleted

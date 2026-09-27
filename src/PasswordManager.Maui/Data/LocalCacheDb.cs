@@ -29,6 +29,9 @@ public class LocalCacheDb
     public Task<List<CachedSite>> GetSitesAsync(Guid siteGroupId) =>
         _connection.Table<CachedSite>().Where(s => s.SiteGroupId == siteGroupId && !s.IsDeleted).ToListAsync();
 
+    public Task<List<CachedSite>> GetAllSitesAsync() =>
+        _connection.Table<CachedSite>().Where(s => !s.IsDeleted).ToListAsync();
+
     public Task<List<CachedCredential>> GetCredentialsAsync(Guid siteId) =>
         _connection.Table<CachedCredential>().Where(c => c.SiteId == siteId && !c.IsDeleted).ToListAsync();
 

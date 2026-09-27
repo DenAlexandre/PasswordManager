@@ -8,7 +8,7 @@ public record SyncSiteDto(Guid Id, Guid SiteGroupId, string Name, string? Url, s
 
 public record SyncCredentialDto(
     Guid Id, Guid SiteId, string EncryptedLabel, string EncryptedUsername,
-    string EncryptedPassword, string? EncryptedNotes, DateTimeOffset UpdatedAt, bool IsDeleted);
+    string EncryptedPassword, string? EncryptedUrl, string? EncryptedNotes, DateTimeOffset UpdatedAt, bool IsDeleted);
 
 public record SyncResponse(
     DateTimeOffset ServerTime,

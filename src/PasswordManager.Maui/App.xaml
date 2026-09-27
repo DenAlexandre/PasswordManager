@@ -12,6 +12,7 @@
             </ResourceDictionary.MergedDictionaries>
             <views:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <views:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
+            <views:IndentToThicknessConverter x:Key="IndentToThicknessConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

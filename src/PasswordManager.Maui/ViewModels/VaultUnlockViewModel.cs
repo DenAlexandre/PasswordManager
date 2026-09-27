@@ -47,26 +47,21 @@ public partial class VaultUnlockViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            bool ok;
-            if (IsSetup)
-            {
-                await _auth.SetupVaultAsync(MasterPassword);
-                ok = true;
-            }
-            else
-            {
-                ok = await _auth.UnlockAsync(MasterPassword);
-            }
+            var ok = IsSetup
+                ? await _auth.SetupVaultAsync(MasterPassword)
+                : await _auth.UnlockAsync(MasterPassword);
 
             if (!ok)
             {
-                ErrorMessage = "Mot de passe maître incorrect.";
+                ErrorMessage = IsSetup
+                    ? "Impossible de créer le coffre (êtes-vous en ligne ?)."
+                    : "Mot de passe maître incorrect.";
                 return;
             }
 
-            // SiteGroupsPage triggers its own sync on appearing - avoid a second concurrent
+            // VaultTreePage triggers its own sync on appearing - avoid a second concurrent
             // sync here, which previously corrupted the local cache's SQLite transaction state.
-            await Shell.Current.GoToAsync(nameof(Views.SiteGroupsPage));
+            await Shell.Current.GoToAsync(nameof(Views.VaultTreePage));
         }
         catch (Exception ex)
         {

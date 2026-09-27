@@ -16,15 +16,17 @@ public class AdminUserItem
 public partial class AdminUsersViewModel : ObservableObject
 {
     private readonly ApiClient _api;
+    private readonly VaultSession _session;
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string? errorMessage;
 
     public ObservableCollection<AdminUserItem> Users { get; } = new();
 
-    public AdminUsersViewModel(ApiClient api)
+    public AdminUsersViewModel(ApiClient api, VaultSession session)
     {
         _api = api;
+        _session = session;
     }
 
     [RelayCommand]
@@ -72,12 +74,34 @@ public partial class AdminUsersViewModel : ObservableObject
         var tempPassword = await page.DisplayPromptAsync("Nouvel utilisateur", "Mot de passe temporaire de connexion");
         if (string.IsNullOrWhiteSpace(tempPassword)) return;
         var isAdmin = await page.DisplayAlert("Rôle", "Cet utilisateur doit-il être administrateur ?", "Oui", "Non");
+        var groupName = await page.DisplayPromptAsync("Groupe de sites", "Nom du groupe dédié à cet utilisateur", initialValue: email);
+        if (string.IsNullOrWhiteSpace(groupName)) return;
 
         var created = await _api.CreateUserAsync(new CreateUserRequest(email, tempPassword, isAdmin));
         if (created is null)
         {
             await page.DisplayAlert("Erreur", "Impossible de créer l'utilisateur (email déjà utilisé ?).", "OK");
             return;
+        }
+
+        // Create the user's dedicated group right away (wrapped for our own key, as usual - the
+        // new user has no public key yet). Their access must be granted once they've logged in
+        // for the first time and finished vault setup - only then does a public key exist to wrap for.
+        var keyMaterial = await _api.GetKeyMaterialAsync();
+        if (keyMaterial is not null)
+        {
+            var tempId = Guid.NewGuid();
+            var (_, groupKey) = _session.CreateNewGroupKey(tempId);
+            var wrappedForSelf = Crypto.RsaKeyWrapping.WrapKey(keyMaterial.PublicKey, groupKey);
+            var group = await _api.CreateSiteGroupAsync(new CreateSiteGroupRequest(groupName, null, wrappedForSelf));
+            if (group is not null)
+            {
+                _session.GetOrUnwrapGroupKey(group.Id, wrappedForSelf);
+                await page.DisplayAlert("Utilisateur créé",
+                    $"Groupe « {groupName} » créé. Une fois que {email} se sera connecté et aura créé son coffre, " +
+                    "ouvrez ce groupe dans « Groupes de sites » et cliquez sur « Ajouter un accès » pour finaliser.",
+                    "OK");
+            }
         }
 
         await LoadAsync();

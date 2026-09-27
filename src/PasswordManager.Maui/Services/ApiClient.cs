@@ -34,8 +34,29 @@ public class ApiClient
     public Task<VaultKeyMaterialResponse?> GetKeyMaterialAsync() =>
         GetAsync<VaultKeyMaterialResponse>("api/auth/key-material");
 
-    public Task SetupVaultAsync(VaultSetupRequest request) =>
-        _http.PostAsJsonAsync("api/auth/vault-setup", request);
+    // Distinguishes "session expired" (401) from "vault not set up yet" (404) from "offline" (no
+    // response at all) - collapsing these into a single null, as GetAsync does, previously caused
+    // an expired token to be misread as "this account has no vault yet".
+    public async Task<(bool Unauthorized, VaultKeyMaterialResponse? Data)> GetKeyMaterialWithAuthCheckAsync()
+    {
+        try
+        {
+            var response = await _http.GetAsync("api/auth/key-material");
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized) return (true, null);
+            if (!response.IsSuccessStatusCode) return (false, null);
+            return (false, await response.Content.ReadFromJsonAsync<VaultKeyMaterialResponse>());
+        }
+        catch (HttpRequestException)
+        {
+            return (false, null); // offline - caller falls back to the local cache
+        }
+    }
+
+    public async Task<bool> SetupVaultAsync(VaultSetupRequest request)
+    {
+        var response = await _http.PostAsJsonAsync("api/auth/vault-setup", request);
+        return response.IsSuccessStatusCode;
+    }
 
     // --- Site groups / sync ---
     public Task<List<MySiteGroupDto>?> GetMySiteGroupsAsync() =>
@@ -51,11 +72,11 @@ public class ApiClient
     public Task<SiteDto?> CreateSiteAsync(Guid siteGroupId, UpsertSiteRequest request) =>
         PostAsync<SiteDto>($"api/sitegroups/{siteGroupId}/sites", request);
 
-    public Task UpdateSiteAsync(Guid siteGroupId, Guid siteId, UpsertSiteRequest request) =>
-        _http.PutAsJsonAsync($"api/sitegroups/{siteGroupId}/sites/{siteId}", request);
+    public Task<bool> UpdateSiteAsync(Guid siteGroupId, Guid siteId, UpsertSiteRequest request) =>
+        PutAsync($"api/sitegroups/{siteGroupId}/sites/{siteId}", request);
 
-    public Task DeleteSiteAsync(Guid siteGroupId, Guid siteId) =>
-        _http.DeleteAsync($"api/sitegroups/{siteGroupId}/sites/{siteId}");
+    public Task<bool> DeleteSiteAsync(Guid siteGroupId, Guid siteId) =>
+        DeleteAsync($"api/sitegroups/{siteGroupId}/sites/{siteId}");
 
     // --- Credentials ---
     public Task<List<CredentialDto>?> GetCredentialsAsync(Guid siteId) =>
@@ -64,11 +85,11 @@ public class ApiClient
     public Task<CredentialDto?> CreateCredentialAsync(Guid siteId, UpsertCredentialRequest request) =>
         PostAsync<CredentialDto>($"api/sites/{siteId}/credentials", request);
 
-    public Task UpdateCredentialAsync(Guid siteId, Guid credentialId, UpsertCredentialRequest request) =>
-        _http.PutAsJsonAsync($"api/sites/{siteId}/credentials/{credentialId}", request);
+    public Task<bool> UpdateCredentialAsync(Guid siteId, Guid credentialId, UpsertCredentialRequest request) =>
+        PutAsync($"api/sites/{siteId}/credentials/{credentialId}", request);
 
-    public Task DeleteCredentialAsync(Guid siteId, Guid credentialId) =>
-        _http.DeleteAsync($"api/sites/{siteId}/credentials/{credentialId}");
+    public Task<bool> DeleteCredentialAsync(Guid siteId, Guid credentialId) =>
+        DeleteAsync($"api/sites/{siteId}/credentials/{credentialId}");
 
     // --- Admin ---
     public Task<List<UserSummaryDto>?> GetUsersAsync() =>
@@ -77,8 +98,8 @@ public class ApiClient
     public Task<UserSummaryDto?> CreateUserAsync(CreateUserRequest request) =>
         PostAsync<UserSummaryDto>("api/admin/users", request);
 
-    public Task UpdateUserAsync(Guid id, UpdateUserRequest request) =>
-        _http.PutAsJsonAsync($"api/admin/users/{id}", request);
+    public Task<bool> UpdateUserAsync(Guid id, UpdateUserRequest request) =>
+        PutAsync($"api/admin/users/{id}", request);
 
     public Task<List<SiteGroupDto>?> GetSiteGroupsAsync() =>
         GetAsync<List<SiteGroupDto>>("api/admin/sitegroups");
@@ -86,17 +107,20 @@ public class ApiClient
     public Task<SiteGroupDto?> CreateSiteGroupAsync(CreateSiteGroupRequest request) =>
         PostAsync<SiteGroupDto>("api/admin/sitegroups", request);
 
-    public Task DeleteSiteGroupAsync(Guid id) =>
-        _http.DeleteAsync($"api/admin/sitegroups/{id}");
+    public Task<bool> DeleteSiteGroupAsync(Guid id) =>
+        DeleteAsync($"api/admin/sitegroups/{id}");
 
     public Task<List<AccessGrantDto>?> GetAccessAsync(Guid siteGroupId) =>
         GetAsync<List<AccessGrantDto>>($"api/admin/sitegroups/{siteGroupId}/access");
 
-    public Task GrantAccessAsync(Guid siteGroupId, GrantAccessRequest request) =>
-        _http.PostAsJsonAsync($"api/admin/sitegroups/{siteGroupId}/access", request);
+    public async Task<bool> GrantAccessAsync(Guid siteGroupId, GrantAccessRequest request)
+    {
+        var response = await _http.PostAsJsonAsync($"api/admin/sitegroups/{siteGroupId}/access", request);
+        return response.IsSuccessStatusCode;
+    }
 
-    public Task RevokeAccessAsync(Guid siteGroupId, Guid userId) =>
-        _http.DeleteAsync($"api/admin/sitegroups/{siteGroupId}/access/{userId}");
+    public Task<bool> RevokeAccessAsync(Guid siteGroupId, Guid userId) =>
+        DeleteAsync($"api/admin/sitegroups/{siteGroupId}/access/{userId}");
 
     private async Task<T?> GetAsync<T>(string url)
     {
@@ -110,5 +134,17 @@ public class ApiClient
         var response = await _http.PostAsJsonAsync(url, body);
         if (!response.IsSuccessStatusCode) return default;
         return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    private async Task<bool> PutAsync(string url, object body)
+    {
+        var response = await _http.PutAsJsonAsync(url, body);
+        return response.IsSuccessStatusCode;
+    }
+
+    private async Task<bool> DeleteAsync(string url)
+    {
+        var response = await _http.DeleteAsync(url);
+        return response.IsSuccessStatusCode;
     }
 }

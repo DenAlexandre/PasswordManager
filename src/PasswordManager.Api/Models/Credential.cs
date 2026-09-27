@@ -11,6 +11,7 @@ public class Credential
     public string EncryptedLabel { get; set; } = string.Empty;
     public string EncryptedUsername { get; set; } = string.Empty;
     public string EncryptedPassword { get; set; } = string.Empty;
+    public string? EncryptedUrl { get; set; }
     public string? EncryptedNotes { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

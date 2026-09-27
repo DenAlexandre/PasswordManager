@@ -2,11 +2,11 @@ using PasswordManager.Maui.ViewModels;
 
 namespace PasswordManager.Maui.Views;
 
-public partial class SitesPage : ContentPage
+public partial class VaultTreePage : ContentPage
 {
-    private readonly SitesViewModel _vm;
+    private readonly VaultTreeViewModel _vm;
 
-    public SitesPage(SitesViewModel vm)
+    public VaultTreePage(VaultTreeViewModel vm)
     {
         InitializeComponent();
         BindingContext = _vm = vm;

@@ -48,7 +48,7 @@ public class SyncController : ApiControllerBase
         var credentialsQuery = _db.Credentials.Where(c => siteIds.Contains(c.SiteId));
         if (since is not null) credentialsQuery = credentialsQuery.Where(c => c.UpdatedAt > since);
         var credentials = await credentialsQuery
-            .Select(c => new SyncCredentialDto(c.Id, c.SiteId, c.EncryptedLabel, c.EncryptedUsername, c.EncryptedPassword, c.EncryptedNotes, c.UpdatedAt, c.IsDeleted))
+            .Select(c => new SyncCredentialDto(c.Id, c.SiteId, c.EncryptedLabel, c.EncryptedUsername, c.EncryptedPassword, c.EncryptedUrl, c.EncryptedNotes, c.UpdatedAt, c.IsDeleted))
             .ToListAsync();
 
         return Ok(new SyncResponse(serverTime, siteGroups, sites, credentials));

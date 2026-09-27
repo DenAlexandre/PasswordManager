@@ -30,7 +30,7 @@ public class CredentialsController : ApiControllerBase
 
         var credentials = await _db.Credentials
             .Where(c => c.SiteId == siteId && !c.IsDeleted)
-            .Select(c => new CredentialDto(c.Id, c.SiteId, c.EncryptedLabel, c.EncryptedUsername, c.EncryptedPassword, c.EncryptedNotes, c.UpdatedAt))
+            .Select(c => new CredentialDto(c.Id, c.SiteId, c.EncryptedLabel, c.EncryptedUsername, c.EncryptedPassword, c.EncryptedUrl, c.EncryptedNotes, c.UpdatedAt))
             .ToListAsync();
         return Ok(credentials);
     }
@@ -47,13 +47,14 @@ public class CredentialsController : ApiControllerBase
             EncryptedLabel = request.EncryptedLabel,
             EncryptedUsername = request.EncryptedUsername,
             EncryptedPassword = request.EncryptedPassword,
+            EncryptedUrl = request.EncryptedUrl,
             EncryptedNotes = request.EncryptedNotes
         };
         _db.Credentials.Add(credential);
         await _db.SaveChangesAsync();
 
         return Ok(new CredentialDto(credential.Id, credential.SiteId, credential.EncryptedLabel,
-            credential.EncryptedUsername, credential.EncryptedPassword, credential.EncryptedNotes, credential.UpdatedAt));
+            credential.EncryptedUsername, credential.EncryptedPassword, credential.EncryptedUrl, credential.EncryptedNotes, credential.UpdatedAt));
     }
 
     [HttpPut("{credentialId:guid}")]
@@ -68,6 +69,7 @@ public class CredentialsController : ApiControllerBase
         credential.EncryptedLabel = request.EncryptedLabel;
         credential.EncryptedUsername = request.EncryptedUsername;
         credential.EncryptedPassword = request.EncryptedPassword;
+        credential.EncryptedUrl = request.EncryptedUrl;
         credential.EncryptedNotes = request.EncryptedNotes;
         credential.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();

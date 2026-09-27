@@ -17,10 +17,17 @@ public partial class LoginPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (await _auth.TryRestoreSessionAsync())
+        var result = await _auth.TryRestoreSessionAsync();
+        switch (result)
         {
-            var setupRequired = await _auth.IsVaultSetupRequiredAsync();
-            await Shell.Current.GoToAsync($"{nameof(VaultUnlockPage)}?setup={(setupRequired ? "true" : "false")}");
+            case SessionRestoreResult.VaultSetupRequired:
+                await Shell.Current.GoToAsync($"{nameof(VaultUnlockPage)}?setup=true");
+                break;
+            case SessionRestoreResult.VaultReady:
+                await Shell.Current.GoToAsync($"{nameof(VaultUnlockPage)}?setup=false");
+                break;
+            case SessionRestoreResult.NoSession:
+                break; // stay on the login form
         }
     }
 }

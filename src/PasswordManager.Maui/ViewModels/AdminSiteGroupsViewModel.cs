@@ -66,6 +66,9 @@ public partial class AdminSiteGroupsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task GoToUsersAsync() => await Shell.Current.GoToAsync(nameof(Views.AdminUsersPage));
+
+    [RelayCommand]
     private async Task AddGroupAsync()
     {
         var page = Application.Current?.Windows[0].Page;
@@ -159,7 +162,12 @@ public partial class AdminSiteGroupsViewModel : ObservableObject
         {
             var groupKey = _session.GetOrUnwrapGroupKey(SelectedGroupId.Value, ownEntry.EncryptedGroupKey);
             var wrapped = Crypto.RsaKeyWrapping.WrapKey(target.PublicKey!, groupKey);
-            await _api.GrantAccessAsync(SelectedGroupId.Value, new GrantAccessRequest(target.Id, role, wrapped));
+            var granted = await _api.GrantAccessAsync(SelectedGroupId.Value, new GrantAccessRequest(target.Id, role, wrapped));
+            if (!granted)
+            {
+                await page.DisplayAlert("Erreur", "Le serveur a refusé d'accorder l'accès.", "OK");
+                return;
+            }
             await LoadAccessAsync();
         }
         catch (Exception ex)

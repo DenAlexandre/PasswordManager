@@ -52,12 +52,12 @@ public static class MauiProgram
 		builder.Services.AddTransient<LoginPage>();
 		builder.Services.AddTransient<VaultUnlockViewModel>();
 		builder.Services.AddTransient<VaultUnlockPage>();
-		builder.Services.AddTransient<SiteGroupsViewModel>();
-		builder.Services.AddTransient<SiteGroupsPage>();
-		builder.Services.AddTransient<SitesViewModel>();
-		builder.Services.AddTransient<SitesPage>();
+		builder.Services.AddTransient<VaultTreeViewModel>();
+		builder.Services.AddTransient<VaultTreePage>();
 		builder.Services.AddTransient<CredentialsViewModel>();
 		builder.Services.AddTransient<CredentialsPage>();
+		builder.Services.AddTransient<CredentialEditViewModel>();
+		builder.Services.AddTransient<CredentialEditPage>();
 		builder.Services.AddTransient<AdminUsersViewModel>();
 		builder.Services.AddTransient<AdminUsersPage>();
 		builder.Services.AddTransient<AdminSiteGroupsViewModel>();
