@@ -51,7 +51,9 @@ Mise en place (une fois), dans Portainer :
    - `JWT_SECRET` — long secret aléatoire (obligatoire, pas de valeur par défaut en prod)
    - `POSTGRES_PASSWORD` — mot de passe Postgres (ne pas laisser la valeur par défaut de dev)
    - `POSTGRES_USER` / `POSTGRES_DB` — optionnels, défauts `postgres` / `passwordmanager`
-   - `API_PORT` — optionnel, défaut `8080` (port loopback local, voir plus bas)
+   - `API_PORT` — optionnel, défaut `8080` (port loopback local, voir plus bas). **Sur
+     `geekinfo-server`, le port `8080` est déjà pris par la stack `puissance4` (son frontend) —
+     utiliser `API_PORT=8081` sur ce serveur précis.**
 3. **Deploy the stack.**
 4. **Créer le premier compte admin AVANT d'exposer le hostname public** (voir encadré
    sécurité ci-dessous) : Containers → `passwordmanager-back-1` → **Console** → `/bin/sh` →
@@ -60,9 +62,11 @@ Mise en place (une fois), dans Portainer :
    curl -X POST http://localhost:8080/api/auth/setup -H "Content-Type: application/json" \
      -d '{"email":"admin@...","password":"..."}'
    ```
+   (toujours `localhost:8080` ici : c'est le port **interne** au conteneur, indépendant du
+   port publié sur l'hôte via `API_PORT`)
 5. **Cloudflare Zero Trust → Networks → Tunnels → `geekinfo-server` → Public Hostname** :
-   ajouter `passwordmanager.geekinfo.org` → service `HTTP` → `localhost:8080` (le port publié
-   par le conteneur `back`).
+   ajouter `passwordmanager.geekinfo.org` → service `HTTP` → `localhost:8081` (le port publié
+   par le conteneur `back` sur l'hôte — `8081` sur `geekinfo-server`, cf. note `API_PORT` ci-dessus).
 
 > **⚠️ Ordre important.** `POST /api/auth/setup` crée le premier compte **en admin, sans
 > authentification**, et se désactive tout seul dès qu'un utilisateur existe (voir
@@ -74,9 +78,10 @@ Pour mettre à jour après un push sur `main` : dans la stack `passwordmanager`,
 **Pull and redeploy** (ou **Editor → Update the stack**, qui refait le `git clone` +
 `docker compose up -d --build`).
 
-Le port `8080` du `docker-compose.yml` est bindé sur `127.0.0.1` : seul le tunnel Cloudflare (en
-local sur la même machine) peut l'atteindre, rien n'est exposé directement sur Internet. Postgres
-n'a lui-même aucun port publié (uniquement accessible depuis le réseau Docker interne).
+Le port publié par `back` (`8080` par défaut, `8081` sur `geekinfo-server`) est bindé sur
+`127.0.0.1` : seul le tunnel Cloudflare (en local sur la même machine) peut l'atteindre, rien
+n'est exposé directement sur Internet. Postgres n'a lui-même aucun port publié (uniquement
+accessible depuis le réseau Docker interne).
 
 ## Client MAUI — build de production
 
