@@ -27,6 +27,10 @@ public class AppDbContext : DbContext
                 .WithMany(g => g.Sites)
                 .HasForeignKey(s => s.SiteGroupId)
                 .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(s => s.ParentSite)
+                .WithMany()
+                .HasForeignKey(s => s.ParentSiteId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Credential>(e =>

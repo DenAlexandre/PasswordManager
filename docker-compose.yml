@@ -30,7 +30,7 @@ services:
       Jwt__Issuer: PasswordManager
       Jwt__Audience: PasswordManager.Clients
     ports:
-      - "${API_PORT:-8080}:8080"
+      - "127.0.0.1:${API_PORT:-8080}:8080"
     networks:
       - internal
 

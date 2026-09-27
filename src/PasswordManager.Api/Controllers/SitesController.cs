@@ -30,7 +30,7 @@ public class SitesController : ApiControllerBase
 
         var sites = await _db.Sites
             .Where(s => s.SiteGroupId == siteGroupId && !s.IsDeleted)
-            .Select(s => new SiteDto(s.Id, s.SiteGroupId, s.Name, s.Url, s.Notes, s.UpdatedAt))
+            .Select(s => new SiteDto(s.Id, s.SiteGroupId, s.ParentSiteId, s.Name, s.Url, s.Notes, s.UpdatedAt))
             .ToListAsync();
         return Ok(sites);
     }
@@ -40,10 +40,13 @@ public class SitesController : ApiControllerBase
     {
         if (await _access.GetRoleAsync(CurrentUserId, siteGroupId) != AccessRole.Write)
             return Forbid();
+        if (!await IsValidParentAsync(siteGroupId, request.ParentSiteId))
+            return BadRequest("Parent folder not found in this site group.");
 
         var site = new Site
         {
             SiteGroupId = siteGroupId,
+            ParentSiteId = request.ParentSiteId,
             Name = request.Name,
             Url = request.Url,
             Notes = request.Notes
@@ -51,7 +54,7 @@ public class SitesController : ApiControllerBase
         _db.Sites.Add(site);
         await _db.SaveChangesAsync();
 
-        return Ok(new SiteDto(site.Id, site.SiteGroupId, site.Name, site.Url, site.Notes, site.UpdatedAt));
+        return Ok(new SiteDto(site.Id, site.SiteGroupId, site.ParentSiteId, site.Name, site.Url, site.Notes, site.UpdatedAt));
     }
 
     [HttpPut("{siteId:guid}")]
@@ -59,6 +62,8 @@ public class SitesController : ApiControllerBase
     {
         if (await _access.GetRoleAsync(CurrentUserId, siteGroupId) != AccessRole.Write)
             return Forbid();
+        if (!await IsValidParentAsync(siteGroupId, request.ParentSiteId))
+            return BadRequest("Parent folder not found in this site group.");
 
         var site = await _db.Sites.SingleOrDefaultAsync(s => s.Id == siteId && s.SiteGroupId == siteGroupId);
         if (site is null) return NotFound();
@@ -66,10 +71,14 @@ public class SitesController : ApiControllerBase
         site.Name = request.Name;
         site.Url = request.Url;
         site.Notes = request.Notes;
+        site.ParentSiteId = request.ParentSiteId;
         site.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync();
         return NoContent();
     }
+
+    private async Task<bool> IsValidParentAsync(Guid siteGroupId, Guid? parentSiteId) =>
+        parentSiteId is null || await _db.Sites.AnyAsync(s => s.Id == parentSiteId && s.SiteGroupId == siteGroupId);
 
     [HttpDelete("{siteId:guid}")]
     public async Task<IActionResult> Delete(Guid siteGroupId, Guid siteId)

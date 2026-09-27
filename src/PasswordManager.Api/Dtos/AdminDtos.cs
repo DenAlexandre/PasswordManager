@@ -15,9 +15,9 @@ public record CreateSiteGroupRequest(string Name, string? Description, string En
 
 public record UpdateSiteGroupRequest(string Name, string? Description);
 
-public record SiteDto(Guid Id, Guid SiteGroupId, string Name, string? Url, string? Notes, DateTimeOffset UpdatedAt);
+public record SiteDto(Guid Id, Guid SiteGroupId, Guid? ParentSiteId, string Name, string? Url, string? Notes, DateTimeOffset UpdatedAt);
 
-public record UpsertSiteRequest(string Name, string? Url, string? Notes);
+public record UpsertSiteRequest(string Name, string? Url, string? Notes, Guid? ParentSiteId);
 
 public record AccessGrantDto(Guid UserId, string UserEmail, Guid SiteGroupId, AccessRole Role, DateTimeOffset GrantedAt);
 

@@ -15,8 +15,8 @@ public record VaultSetupRequest(
 
 public record MySiteGroupDto(Guid Id, string Name, string? Description, AccessRole Role, string EncryptedGroupKey);
 
-public record SiteDto(Guid Id, Guid SiteGroupId, string Name, string? Url, string? Notes, DateTimeOffset UpdatedAt);
-public record UpsertSiteRequest(string Name, string? Url, string? Notes);
+public record SiteDto(Guid Id, Guid SiteGroupId, Guid? ParentSiteId, string Name, string? Url, string? Notes, DateTimeOffset UpdatedAt);
+public record UpsertSiteRequest(string Name, string? Url, string? Notes, Guid? ParentSiteId);
 
 public record CredentialDto(
     Guid Id, Guid SiteId, string EncryptedLabel, string EncryptedUsername,
@@ -26,7 +26,7 @@ public record UpsertCredentialRequest(
     string EncryptedLabel, string EncryptedUsername, string EncryptedPassword, string? EncryptedUrl, string? EncryptedNotes);
 
 public record SyncSiteGroupDto(Guid Id, string Name, string? Description, AccessRole Role, string EncryptedGroupKey);
-public record SyncSiteDto(Guid Id, Guid SiteGroupId, string Name, string? Url, string? Notes, DateTimeOffset UpdatedAt, bool IsDeleted);
+public record SyncSiteDto(Guid Id, Guid SiteGroupId, Guid? ParentSiteId, string Name, string? Url, string? Notes, DateTimeOffset UpdatedAt, bool IsDeleted);
 public record SyncCredentialDto(
     Guid Id, Guid SiteId, string EncryptedLabel, string EncryptedUsername,
     string EncryptedPassword, string? EncryptedUrl, string? EncryptedNotes, DateTimeOffset UpdatedAt, bool IsDeleted);

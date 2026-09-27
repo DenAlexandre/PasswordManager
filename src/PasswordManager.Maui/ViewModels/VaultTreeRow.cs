@@ -2,24 +2,52 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PasswordManager.Maui.ViewModels;
 
-// A single flattened row of the group/site tree. Group rows can be expanded/collapsed to
-// reveal their Site children, which are inserted/removed from the parent ObservableCollection
-// immediately after them - there is no native TreeView control in .NET MAUI.
+public enum TreeRowKind { Group, Folder, Entry }
+
+// A single flattened row of the KeePass-style tree: SiteGroup > Folder (nested arbitrarily via
+// ParentSiteId) > Entry (Credential, a leaf). There is no native TreeView control in .NET MAUI,
+// so Folder/Group rows insert/remove their direct children from the parent ObservableCollection
+// on expand/collapse instead.
 public partial class VaultTreeRow : ObservableObject
 {
-    public bool IsGroup { get; init; }
+    public TreeRowKind Kind { get; init; }
     public Guid Id { get; init; }
-    public Guid ParentGroupId { get; init; }
+    public Guid GroupId { get; init; }
+    public Guid? ParentFolderId { get; init; }
+    public int Depth { get; init; }
     public string Name { get; init; } = string.Empty;
     public string? Subtitle { get; init; }
     public bool CanWrite { get; init; }
+
+    // Entry-only decrypted fields (kept off any Group/Folder row).
+    public string Username { get; init; } = string.Empty;
+    public string Password { get; init; } = string.Empty;
+    public string? Url { get; init; }
+    public string? Notes { get; init; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Chevron))]
     private bool isExpanded;
 
-    public string Chevron => !IsGroup ? string.Empty : IsExpanded ? "▾" : "▸";
-    public double Indent => IsGroup ? 12 : 36;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MaskedPassword))]
+    private bool isRevealed;
+
+    public bool IsEntry => Kind == TreeRowKind.Entry;
+    public bool CanAddChild => CanWrite && Kind != TreeRowKind.Entry;
+    public string Chevron => Kind == TreeRowKind.Entry ? string.Empty : IsExpanded ? "▾" : "▸";
+    public double Indent => 12 + Depth * 24;
     public Microsoft.Maui.Controls.FontAttributes RowFontAttributes =>
-        IsGroup ? Microsoft.Maui.Controls.FontAttributes.Bold : Microsoft.Maui.Controls.FontAttributes.None;
+        Kind == TreeRowKind.Group ? Microsoft.Maui.Controls.FontAttributes.Bold : Microsoft.Maui.Controls.FontAttributes.None;
+    public string MaskedPassword => IsRevealed ? Password : new string('•', Math.Max(Password.Length, 8));
+
+    public CredentialItem ToCredentialItem() => new()
+    {
+        Id = Id,
+        Label = Name,
+        Username = Username,
+        Password = Password,
+        Url = Url,
+        Notes = Notes
+    };
 }

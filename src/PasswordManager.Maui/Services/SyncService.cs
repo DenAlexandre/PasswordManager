@@ -34,6 +34,7 @@ public class SyncService
         {
             Id = s.Id,
             SiteGroupId = s.SiteGroupId,
+            ParentSiteId = s.ParentSiteId,
             Name = s.Name,
             Url = s.Url,
             Notes = s.Notes,

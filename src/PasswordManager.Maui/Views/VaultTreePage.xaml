@@ -17,19 +17,35 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:VaultTreeRow">
                         <Grid Padding="{Binding Indent, Converter={StaticResource IndentToThicknessConverter}}"
-                              ColumnDefinitions="20,*,Auto,Auto"
+                              RowDefinitions="Auto,Auto"
                               MinimumHeightRequest="44">
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=TapRowCommand}"
                                     CommandParameter="{Binding .}" />
                             </Grid.GestureRecognizers>
-                            <Label Grid.Column="0" Text="{Binding Chevron}" FontSize="12" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding Name}" FontAttributes="{Binding RowFontAttributes}" VerticalOptions="Center" />
-                            <Label Grid.Column="2" Text="{Binding Subtitle}" TextColor="Gray" FontSize="12" Margin="8,0" VerticalOptions="Center" />
-                            <Button Grid.Column="3" Text="+" Padding="8,0" IsVisible="{Binding CanWrite}"
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=AddSiteCommand}"
-                                    CommandParameter="{Binding .}" />
+
+                            <Grid Grid.Row="0" ColumnDefinitions="20,*,Auto,Auto" Padding="0,6">
+                                <Label Grid.Column="0" Text="{Binding Chevron}" FontSize="12" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="{Binding Name}" FontAttributes="{Binding RowFontAttributes}" VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding Subtitle}" TextColor="Gray" FontSize="12" Margin="8,0" VerticalOptions="Center"
+                                       IsVisible="{Binding IsEntry, Converter={StaticResource InvertedBoolConverter}}" />
+                                <Button Grid.Column="3" Text="+" Padding="8,0" IsVisible="{Binding CanAddChild}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=AddCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+
+                            <Grid Grid.Row="1" ColumnDefinitions="20,*,Auto,Auto" IsVisible="{Binding IsEntry}" Padding="0,0,0,6">
+                                <Label Grid.Column="1" Text="{Binding Subtitle}" FontSize="13" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="{Binding MaskedPassword}" FontFamily="Courier" FontSize="12" TextColor="Gray"
+                                       Margin="0,18,0,0" VerticalOptions="Center" />
+                                <Button Grid.Column="2" Text="👁" Padding="8,0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=ToggleRevealCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Grid.Column="3" Text="Copier" Padding="8,0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=CopyPasswordCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
                         </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

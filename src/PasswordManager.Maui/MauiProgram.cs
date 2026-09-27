@@ -54,8 +54,6 @@ public static class MauiProgram
 		builder.Services.AddTransient<VaultUnlockPage>();
 		builder.Services.AddTransient<VaultTreeViewModel>();
 		builder.Services.AddTransient<VaultTreePage>();
-		builder.Services.AddTransient<CredentialsViewModel>();
-		builder.Services.AddTransient<CredentialsPage>();
 		builder.Services.AddTransient<CredentialEditViewModel>();
 		builder.Services.AddTransient<CredentialEditPage>();
 		builder.Services.AddTransient<AdminUsersViewModel>();

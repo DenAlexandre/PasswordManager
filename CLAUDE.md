@@ -28,6 +28,11 @@ dotnet ef database update   # only needed outside Docker - Program.cs calls db.D
 ```
 There is no test project in this repo yet. Verify backend changes with the Swagger UI (`/swagger`, exposed by `AddSwaggerGen`/`UseSwaggerUI` in `Program.cs`) or `curl` against `http://localhost:8080/api/...`.
 
+### Production deployment
+The backend is deployed as a **Git-repository-based Portainer stack** (`https://github.com/DenAlexandre/PasswordManager.git`, manual redeploy only, no GitOps polling) on the `geekinfo-server` host, reachable at `https://passwordmanager.geekinfo.org` through a Cloudflare Tunnel. See the README's "Déploiement en production" section for the exact Portainer steps — in particular, the first-admin bootstrap (`POST /api/auth/setup`) must be done via the container console **before** the Cloudflare public hostname is added, since that endpoint is unauthenticated by design (it disables itself once any user exists).
+
+The MAUI client is not a hosted service — it's distributed as platform installers via `deploy/{Windows,Android,iOS}/` (publish scripts + prerequisites per platform). `Services/AppSettings.cs` defaults `ApiBaseUrl` to the production URL above in `Release` builds and to `localhost`/`10.0.2.2` in `Debug` builds.
+
 ### MAUI client
 ```bash
 cd src/PasswordManager.Maui

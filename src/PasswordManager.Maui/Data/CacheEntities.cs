@@ -33,6 +33,7 @@ public class CachedSite
 {
     [PrimaryKey] public Guid Id { get; set; }
     [Indexed] public Guid SiteGroupId { get; set; }
+    public Guid? ParentSiteId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Url { get; set; }
     public string? Notes { get; set; }

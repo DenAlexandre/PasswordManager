@@ -1,20 +1,28 @@
 using System.Collections.ObjectModel;
+using System.Security.Cryptography;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PasswordManager.Maui.Crypto;
 using PasswordManager.Maui.Data;
 using PasswordManager.Maui.Models;
 using PasswordManager.Maui.Services;
 
 namespace PasswordManager.Maui.ViewModels;
 
+// KeePass-style tree: SiteGroup > Folder (nested arbitrarily via Site.ParentSiteId) > Entry
+// (Credential, a leaf). Flattened into one ObservableCollection since MAUI has no TreeView;
+// Group/Folder rows insert/remove their direct children on expand/collapse.
 public partial class VaultTreeViewModel : ObservableObject
 {
     private readonly LocalCacheDb _cache;
     private readonly SyncService _sync;
+    private readonly VaultSession _session;
     private readonly AuthService _auth;
     private readonly ApiClient _api;
 
-    private ILookup<Guid, CachedSite> _sitesByGroup = Enumerable.Empty<CachedSite>().ToLookup(s => s.SiteGroupId);
+    private Dictionary<Guid, CachedSiteGroup> _groupsById = new();
+    private ILookup<Guid?, CachedSite> _foldersByParent = Enumerable.Empty<CachedSite>().ToLookup(s => s.ParentSiteId);
+    private ILookup<Guid, CachedCredential> _credentialsByFolder = Enumerable.Empty<CachedCredential>().ToLookup(c => c.SiteId);
 
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private bool isAdmin;
@@ -26,6 +34,7 @@ public partial class VaultTreeViewModel : ObservableObject
     {
         _cache = cache;
         _sync = sync;
+        _session = session;
         _auth = auth;
         _api = api;
         IsAdmin = session.IsAdmin;
@@ -43,17 +52,21 @@ public partial class VaultTreeViewModel : ObservableObject
         {
             _ = await _sync.SyncAsync();
             var groups = (await _cache.GetSiteGroupsAsync()).OrderBy(g => g.Name).ToList();
-            _sitesByGroup = (await _cache.GetAllSitesAsync()).ToLookup(s => s.SiteGroupId);
+            _groupsById = groups.ToDictionary(g => g.Id);
+            _foldersByParent = (await _cache.GetAllSitesAsync()).ToLookup(s => s.ParentSiteId);
+            _credentialsByFolder = (await _cache.GetAllCredentialsAsync()).ToLookup(c => c.SiteId);
 
-            var expandedGroupIds = Rows.Where(r => r.IsGroup && r.IsExpanded).Select(r => r.Id).ToHashSet();
-            Rows.Clear();
+            var expandedIds = Rows.Where(r => r.Kind != TreeRowKind.Entry && r.IsExpanded).Select(r => r.Id).ToHashSet();
+            var flat = new List<VaultTreeRow>();
             foreach (var g in groups)
             {
                 var role = (AccessRole)g.Role;
                 var groupRow = new VaultTreeRow
                 {
-                    IsGroup = true,
+                    Kind = TreeRowKind.Group,
                     Id = g.Id,
+                    GroupId = g.Id,
+                    Depth = 0,
                     Name = g.Name,
                     Subtitle = role switch
                     {
@@ -62,11 +75,15 @@ public partial class VaultTreeViewModel : ObservableObject
                         _ => "Aucun accès"
                     },
                     CanWrite = role == AccessRole.Write,
-                    IsExpanded = expandedGroupIds.Contains(g.Id)
+                    IsExpanded = expandedIds.Contains(g.Id)
                 };
-                Rows.Add(groupRow);
-                if (groupRow.IsExpanded) InsertSiteRows(groupRow);
+                flat.Add(groupRow);
+                if (groupRow.IsExpanded)
+                    AppendExpandedChildren(flat, g, parentFolderId: null, depth: 1, groupRow.CanWrite, expandedIds);
             }
+
+            Rows.Clear();
+            foreach (var row in flat) Rows.Add(row);
         }
         catch (Exception ex)
         {
@@ -78,71 +95,172 @@ public partial class VaultTreeViewModel : ObservableObject
         }
     }
 
-    private void InsertSiteRows(VaultTreeRow groupRow)
+    // Recursively appends the already-expanded subtree under (group, parentFolderId).
+    private void AppendExpandedChildren(List<VaultTreeRow> flat, CachedSiteGroup group, Guid? parentFolderId, int depth, bool canWrite, HashSet<Guid> expandedIds)
     {
-        var insertIndex = Rows.IndexOf(groupRow) + 1;
-        foreach (var s in _sitesByGroup[groupRow.Id].OrderBy(s => s.Name))
+        foreach (var folder in _foldersByParent[parentFolderId].Where(s => s.SiteGroupId == group.Id).OrderBy(s => s.Name))
         {
-            Rows.Insert(insertIndex++, new VaultTreeRow
+            var folderRow = new VaultTreeRow
             {
-                IsGroup = false,
-                Id = s.Id,
-                ParentGroupId = groupRow.Id,
-                Name = s.Name,
-                Subtitle = s.Url
-            });
+                Kind = TreeRowKind.Folder,
+                Id = folder.Id,
+                GroupId = group.Id,
+                ParentFolderId = parentFolderId,
+                Depth = depth,
+                Name = folder.Name,
+                Subtitle = folder.Url,
+                CanWrite = canWrite,
+                IsExpanded = expandedIds.Contains(folder.Id)
+            };
+            flat.Add(folderRow);
+            if (folderRow.IsExpanded)
+                AppendExpandedChildren(flat, group, folder.Id, depth + 1, canWrite, expandedIds);
         }
+
+        if (parentFolderId is not null)
+            flat.AddRange(BuildEntryRows(group, parentFolderId.Value, depth, canWrite));
+    }
+
+    private List<VaultTreeRow> BuildEntryRows(CachedSiteGroup group, Guid folderId, int depth, bool canWrite)
+    {
+        var result = new List<VaultTreeRow>();
+        byte[] groupKey;
+        try
+        {
+            groupKey = _session.GetOrUnwrapGroupKey(group.Id, group.EncryptedGroupKey);
+        }
+        catch (InvalidOperationException)
+        {
+            return result; // vault locked - shouldn't happen post-unlock, but don't crash the tree
+        }
+
+        foreach (var c in _credentialsByFolder[folderId])
+        {
+            try
+            {
+                var label = AesGcmCipher.Decrypt(groupKey, c.EncryptedLabel);
+                var username = AesGcmCipher.Decrypt(groupKey, c.EncryptedUsername);
+                var password = AesGcmCipher.Decrypt(groupKey, c.EncryptedPassword);
+                var url = c.EncryptedUrl is null ? null : AesGcmCipher.Decrypt(groupKey, c.EncryptedUrl);
+                var notes = c.EncryptedNotes is null ? null : AesGcmCipher.Decrypt(groupKey, c.EncryptedNotes);
+
+                result.Add(new VaultTreeRow
+                {
+                    Kind = TreeRowKind.Entry,
+                    Id = c.Id,
+                    GroupId = group.Id,
+                    ParentFolderId = folderId,
+                    Depth = depth,
+                    Name = label,
+                    Subtitle = username,
+                    Username = username,
+                    Password = password,
+                    Url = url,
+                    Notes = notes,
+                    CanWrite = canWrite
+                });
+            }
+            catch (CryptographicException)
+            {
+                // Corrupt/foreign entry - skip rather than crash the whole list.
+            }
+        }
+        return result.OrderBy(e => e.Name).ToList();
+    }
+
+    private void Toggle(VaultTreeRow row)
+    {
+        if (row.IsExpanded)
+        {
+            var startIndex = Rows.IndexOf(row) + 1;
+            var descendantCount = 0;
+            while (startIndex + descendantCount < Rows.Count && Rows[startIndex + descendantCount].Depth > row.Depth)
+                descendantCount++;
+            for (var i = 0; i < descendantCount; i++)
+                Rows.RemoveAt(startIndex);
+            row.IsExpanded = false;
+            return;
+        }
+
+        row.IsExpanded = true;
+        var group = _groupsById[row.GroupId];
+        var parentFolderId = row.Kind == TreeRowKind.Group ? (Guid?)null : row.Id;
+        var children = new List<VaultTreeRow>();
+        AppendExpandedChildren(children, group, parentFolderId, row.Depth + 1, row.CanWrite, expandedIds: new HashSet<Guid>());
+
+        var insertIndex = Rows.IndexOf(row) + 1;
+        foreach (var child in children) Rows.Insert(insertIndex++, child);
     }
 
     [RelayCommand]
     private async Task TapRowAsync(VaultTreeRow row)
     {
-        if (row.IsGroup)
+        if (row.Kind == TreeRowKind.Entry)
         {
-            if (row.IsExpanded)
+            await Shell.Current.GoToAsync(nameof(Views.CredentialEditPage), new Dictionary<string, object>
             {
-                foreach (var child in Rows.Where(r => !r.IsGroup && r.ParentGroupId == row.Id).ToList())
-                    Rows.Remove(child);
-                row.IsExpanded = false;
-            }
-            else
-            {
-                row.IsExpanded = true;
-                InsertSiteRows(row);
-            }
+                ["siteId"] = row.ParentFolderId!.Value,
+                ["siteGroupId"] = row.GroupId,
+                ["item"] = row.ToCredentialItem()
+            });
             return;
         }
 
-        await Shell.Current.GoToAsync(
-            $"{nameof(Views.CredentialsPage)}?siteId={row.Id}&siteName={Uri.EscapeDataString(row.Name)}&siteGroupId={row.ParentGroupId}");
+        Toggle(row);
     }
 
     [RelayCommand]
-    private async Task AddSiteAsync(VaultTreeRow groupRow)
+    private void ToggleReveal(VaultTreeRow row) => row.IsRevealed = !row.IsRevealed;
+
+    [RelayCommand]
+    private async Task CopyPasswordAsync(VaultTreeRow row) => await Clipboard.SetTextAsync(row.Password);
+
+    [RelayCommand]
+    private async Task AddAsync(VaultTreeRow row)
     {
         var page = Application.Current?.Windows[0].Page;
-        if (page is null || !groupRow.IsGroup) return;
+        if (page is null) return;
 
-        var name = await page.DisplayPromptAsync("Nouveau site", "Nom du site client");
+        var choice = "Nouveau dossier";
+        if (row.Kind == TreeRowKind.Folder)
+        {
+            var picked = await page.DisplayActionSheet("Ajouter", "Annuler", null, "Nouveau dossier", "Nouvelle entrée");
+            if (picked is null || picked == "Annuler") return;
+            choice = picked;
+        }
+
+        if (choice == "Nouvelle entrée")
+        {
+            await Shell.Current.GoToAsync(nameof(Views.CredentialEditPage), new Dictionary<string, object>
+            {
+                ["siteId"] = row.Id,
+                ["siteGroupId"] = row.GroupId
+            });
+            return;
+        }
+
+        var name = await page.DisplayPromptAsync("Nouveau dossier", "Nom du dossier");
         if (string.IsNullOrWhiteSpace(name)) return;
-        var url = await page.DisplayPromptAsync("Nouveau site", "URL (optionnel)");
+        var url = await page.DisplayPromptAsync("Nouveau dossier", "URL (optionnel)");
 
-        var created = await _api.CreateSiteAsync(groupRow.Id, new UpsertSiteRequest(name, url, null));
+        var parentSiteId = row.Kind == TreeRowKind.Group ? (Guid?)null : row.Id;
+        var created = await _api.CreateSiteAsync(row.GroupId, new UpsertSiteRequest(name, url, null, parentSiteId));
         if (created is null)
         {
-            await page.DisplayAlert("Erreur", "Impossible de créer le site (êtes-vous en ligne ?).", "OK");
+            await page.DisplayAlert("Erreur", "Impossible de créer le dossier (êtes-vous en ligne ?).", "OK");
             return;
         }
 
         await _cache.UpsertSitesAsync(new[]
         {
-            new CachedSite { Id = created.Id, SiteGroupId = groupRow.Id, Name = created.Name, Url = created.Url, Notes = created.Notes, UpdatedAt = created.UpdatedAt }
+            new CachedSite
+            {
+                Id = created.Id, SiteGroupId = row.GroupId, ParentSiteId = created.ParentSiteId,
+                Name = created.Name, Url = created.Url, Notes = created.Notes, UpdatedAt = created.UpdatedAt
+            }
         });
 
-        if (!groupRow.IsExpanded)
-        {
-            groupRow.IsExpanded = true;
-        }
+        row.IsExpanded = true; // captured by LoadAsync's expand-state preservation, revealing the new folder
         await LoadAsync();
     }
 

@@ -41,7 +41,7 @@ public class SyncController : ApiControllerBase
         var sitesQuery = _db.Sites.Where(s => groupIds.Contains(s.SiteGroupId));
         if (since is not null) sitesQuery = sitesQuery.Where(s => s.UpdatedAt > since);
         var sites = await sitesQuery
-            .Select(s => new SyncSiteDto(s.Id, s.SiteGroupId, s.Name, s.Url, s.Notes, s.UpdatedAt, s.IsDeleted))
+            .Select(s => new SyncSiteDto(s.Id, s.SiteGroupId, s.ParentSiteId, s.Name, s.Url, s.Notes, s.UpdatedAt, s.IsDeleted))
             .ToListAsync();
 
         var siteIds = await _db.Sites.Where(s => groupIds.Contains(s.SiteGroupId)).Select(s => s.Id).ToListAsync();

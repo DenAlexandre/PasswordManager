@@ -35,6 +35,9 @@ public class LocalCacheDb
     public Task<List<CachedCredential>> GetCredentialsAsync(Guid siteId) =>
         _connection.Table<CachedCredential>().Where(c => c.SiteId == siteId && !c.IsDeleted).ToListAsync();
 
+    public Task<List<CachedCredential>> GetAllCredentialsAsync() =>
+        _connection.Table<CachedCredential>().Where(c => !c.IsDeleted).ToListAsync();
+
     public async Task ReplaceSiteGroupsAsync(IEnumerable<CachedSiteGroup> groups)
     {
         await _connection.DeleteAllAsync<CachedSiteGroup>();
