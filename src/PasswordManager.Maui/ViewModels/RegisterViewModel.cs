@@ -52,7 +52,7 @@ public partial class RegisterViewModel : ObservableObject
             var (success, error) = await _auth.RegisterAsync(email, Password);
             if (!success)
             {
-                ErrorMessage = error ?? "Impossible de créer le compte.";
+                ErrorMessage = string.IsNullOrWhiteSpace(error) ? "Impossible de créer le compte." : error;
                 return;
             }
 

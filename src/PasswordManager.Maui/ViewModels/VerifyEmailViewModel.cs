@@ -38,7 +38,7 @@ public partial class VerifyEmailViewModel : ObservableObject
             var (success, error) = await _auth.VerifyEmailAsync(Email, Code.Trim());
             if (!success)
             {
-                ErrorMessage = error ?? "Code invalide.";
+                ErrorMessage = string.IsNullOrWhiteSpace(error) ? "Code invalide." : error;
                 return;
             }
 

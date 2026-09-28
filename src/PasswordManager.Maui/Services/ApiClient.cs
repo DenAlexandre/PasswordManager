@@ -168,6 +168,11 @@ public class ApiClient
     public Task<List<AccessGrantDto>?> GetAccessAsync(Guid siteGroupId) =>
         GetAsync<List<AccessGrantDto>>($"api/admin/sitegroups/{siteGroupId}/access");
 
+    // Admin-only, no membership check - lets a full-system backup export a group's data even when
+    // the exporting admin isn't personally a member.
+    public Task<AdminSiteGroupExportDataDto?> GetAdminSiteGroupExportDataAsync(Guid siteGroupId) =>
+        GetAsync<AdminSiteGroupExportDataDto>($"api/admin/sitegroups/{siteGroupId}/export-data");
+
     public async Task<bool> GrantAccessAsync(Guid siteGroupId, GrantAccessRequest request)
     {
         var response = await _http.PostAsJsonAsync($"api/admin/sitegroups/{siteGroupId}/access", request);

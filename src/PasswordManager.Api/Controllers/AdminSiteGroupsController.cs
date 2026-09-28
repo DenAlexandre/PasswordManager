@@ -77,6 +77,27 @@ public class AdminSiteGroupsController : ApiControllerBase
         return NoContent();
     }
 
+    // Admin-only, no membership check - lets a full-system backup export a group's Sites/Credentials
+    // even when the exporting admin isn't personally a member. This only ever moves ciphertext (the
+    // server already stores it); restoring/decrypting it still requires one of the group's actual
+    // members and their own wrapped key (see BackupService on the client).
+    [HttpGet("{id:guid}/export-data")]
+    public async Task<ActionResult<AdminSiteGroupExportDataDto>> GetExportData(Guid id)
+    {
+        var sites = await _db.Sites
+            .Where(s => s.SiteGroupId == id && !s.IsDeleted)
+            .Select(s => new SiteDto(s.Id, s.SiteGroupId, s.ParentSiteId, s.Name, s.Url, s.Notes, s.UpdatedAt))
+            .ToListAsync();
+
+        var siteIds = sites.Select(s => s.Id).ToList();
+        var credentials = await _db.Credentials
+            .Where(c => siteIds.Contains(c.SiteId) && !c.IsDeleted)
+            .Select(c => new CredentialDto(c.Id, c.SiteId, c.EncryptedLabel, c.EncryptedUsername, c.EncryptedPassword, c.EncryptedUrl, c.EncryptedNotes, c.UpdatedAt))
+            .ToListAsync();
+
+        return Ok(new AdminSiteGroupExportDataDto(sites, credentials));
+    }
+
     [HttpGet("{id:guid}/access")]
     public async Task<ActionResult<List<AccessGrantDto>>> ListAccess(Guid id)
     {

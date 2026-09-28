@@ -35,14 +35,17 @@ public class BackupService
         _fileSaver = fileSaver;
     }
 
-    public Task<List<CachedSiteGroup>> GetExportCandidatesAsync() => _cache.GetSiteGroupsAsync();
+    // Every user reaching this (admin-only, gated at the flyout level) can see every Database in
+    // the system, not just their own accessible ones - see AdminSiteGroupsController.List.
+    public async Task<List<SiteGroupDto>> GetExportCandidatesAsync() => await _api.GetSiteGroupsAsync() ?? new List<SiteGroupDto>();
 
     public async Task<BackupFileV1?> BuildExportAsync(IReadOnlyCollection<Guid> siteGroupIds)
     {
         var identity = await _cache.GetIdentityAsync();
         if (identity is null) return null;
 
-        var selected = (await _cache.GetSiteGroupsAsync()).Where(g => siteGroupIds.Contains(g.Id));
+        var allGroups = await _api.GetSiteGroupsAsync() ?? new List<SiteGroupDto>();
+        var selected = allGroups.Where(g => siteGroupIds.Contains(g.Id));
 
         var backupGroups = new List<BackupSiteGroup>();
         foreach (var group in selected)
@@ -52,16 +55,14 @@ public class BackupService
                 .Select(a => new BackupMember(a.UserId, a.UserEmail, a.Role, a.EncryptedGroupKey))
                 .ToList();
 
-            var sites = await _cache.GetSitesAsync(group.Id);
-            var backupSites = sites.Select(s => new BackupSite(s.Id, s.ParentSiteId, s.Name, s.Url, s.Notes)).ToList();
-
-            var backupCredentials = new List<BackupCredential>();
-            foreach (var site in sites)
-            {
-                var credentials = await _cache.GetCredentialsAsync(site.Id);
-                backupCredentials.AddRange(credentials.Select(c => new BackupCredential(
-                    c.Id, c.SiteId, c.EncryptedLabel, c.EncryptedUsername, c.EncryptedPassword, c.EncryptedUrl, c.EncryptedNotes)));
-            }
+            // Fetched from the server (not LocalCacheDb) since the admin may not be a member of
+            // this group at all, in which case it was never synced into their local cache.
+            var exportData = await _api.GetAdminSiteGroupExportDataAsync(group.Id);
+            var backupSites = (exportData?.Sites ?? new List<SiteDto>())
+                .Select(s => new BackupSite(s.Id, s.ParentSiteId, s.Name, s.Url, s.Notes)).ToList();
+            var backupCredentials = (exportData?.Credentials ?? new List<CredentialDto>())
+                .Select(c => new BackupCredential(c.Id, c.SiteId, c.EncryptedLabel, c.EncryptedUsername, c.EncryptedPassword, c.EncryptedUrl, c.EncryptedNotes))
+                .ToList();
 
             backupGroups.Add(new BackupSiteGroup(group.Id, group.Name, group.Description, members, backupSites, backupCredentials));
         }

@@ -65,6 +65,14 @@ builder.Services.AddCors(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // The default rejection response has an empty body - without this, a throttled client sees
+    // a 429 with nothing to show the user (ApiClient's "error ?? fallback" pattern only catches
+    // a null body, not an empty string).
+    options.OnRejected = (context, token) =>
+    {
+        context.HttpContext.Response.ContentType = "text/plain";
+        return new ValueTask(context.HttpContext.Response.WriteAsync("Trop de tentatives. Réessayez plus tard.", token));
+    };
     options.AddPolicy("auth-public", context => RateLimitPartition.GetFixedWindowLimiter(
         partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         factory: _ => new FixedWindowRateLimiterOptions

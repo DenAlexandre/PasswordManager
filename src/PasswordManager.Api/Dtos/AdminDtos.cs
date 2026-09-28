@@ -17,6 +17,10 @@ public record SiteDto(Guid Id, Guid SiteGroupId, Guid? ParentSiteId, string Name
 
 public record UpsertSiteRequest(string Name, string? Url, string? Notes, Guid? ParentSiteId);
 
+// Full-system backup export: a group's entire Sites/Credentials tree regardless of the exporting
+// admin's own membership (see AdminSiteGroupsController.GetExportData).
+public record AdminSiteGroupExportDataDto(List<SiteDto> Sites, List<CredentialDto> Credentials);
+
 public record AccessGrantDto(Guid UserId, string UserEmail, Guid SiteGroupId, AccessRole Role, DateTimeOffset GrantedAt, string EncryptedGroupKey);
 
 // EncryptedGroupKey must be produced client-side (by the admin or an existing member who already
