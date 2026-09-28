@@ -166,6 +166,16 @@ public partial class VaultTreeViewModel : ObservableObject
         await CreateFolderAsync(createdGroup.Id, "Racine", null, null);
 
         await LoadAsync();
+
+        // A brand-new row has no prior expand state to carry over (LoadAsync only preserves
+        // expand state for rows that already existed), so without this the "Racine" folder just
+        // created above is invisible until the user manually clicks the database row to expand it.
+        var newGroupRow = Rows.FirstOrDefault(r => r.Id == createdGroup.Id);
+        if (newGroupRow is not null)
+        {
+            SelectNode(newGroupRow);
+            Toggle(newGroupRow);
+        }
     }
 
     // Recursively appends the already-expanded subtree under (group, parentFolderId). Only
