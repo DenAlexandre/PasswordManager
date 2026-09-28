@@ -15,6 +15,10 @@ public partial class VaultTreePage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        // ToolbarItem is a MenuItem, not a VisualElement - no IsVisible to bind, so this is
+        // managed here instead. The page is Transient (fresh instance per navigation), so a
+        // one-time check on appearing is enough - no need to react to IsAdmin changing later.
+        if (!_vm.IsAdmin) ToolbarItems.Remove(CreateDatabaseToolbarItem);
         _vm.LoadCommand.Execute(null);
     }
 

@@ -23,14 +23,16 @@ public class AuthController : ControllerBase
     private readonly JwtTokenService _jwt;
     private readonly IEmailSender _email;
     private readonly ILogger<AuthController> _logger;
+    private readonly IHostEnvironment _env;
 
-    public AuthController(AppDbContext db, PasswordHasher hasher, JwtTokenService jwt, IEmailSender email, ILogger<AuthController> logger)
+    public AuthController(AppDbContext db, PasswordHasher hasher, JwtTokenService jwt, IEmailSender email, ILogger<AuthController> logger, IHostEnvironment env)
     {
         _db = db;
         _hasher = hasher;
         _jwt = jwt;
         _logger = logger;
         _email = email;
+        _env = env;
     }
 
     // One-time bootstrap: only works while the Users table is empty. Kept as the only way to
@@ -222,6 +224,11 @@ public class AuthController : ControllerBase
     // account. The user can always retry via resend-verification once mail delivery is fixed.
     private async Task SendVerificationEmailAsync(User user)
     {
+        // Dev convenience only - never runs in Production, so this can't leak a code there. Lets
+        // local testing proceed without a working SMTP relay (see docker-compose.yml's Smtp__* vars).
+        if (_env.IsDevelopment())
+            _logger.LogWarning("[DEV ONLY] Verification code for {Email}: {Code}", user.Email, user.EmailVerificationCode);
+
         try
         {
             await _email.SendAsync(user.Email, "Vérifiez votre adresse email",

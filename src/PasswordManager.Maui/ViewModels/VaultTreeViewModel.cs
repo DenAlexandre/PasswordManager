@@ -36,9 +36,16 @@ public partial class VaultTreeViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasSelectedEntry))]
     private VaultTreeRow? selectedEntry;
 
+    // A brand-new (or emptied-out) database has no folders, so there's nothing to click to add
+    // one - the row's own right-click menu is the only other way in, which isn't obvious. Shown
+    // as a one-click "Créer un dossier « Racine »" button in the right pane instead.
+    [ObservableProperty] private bool canCreateRootFolder;
+
     public bool HasSelectedNode => SelectedNode is not null;
     public bool IsSelectedNodeFolder => SelectedNode?.Kind == TreeRowKind.Folder;
     public bool HasSelectedEntry => SelectedEntry is not null;
+    // POST /api/admin/sitegroups is AdminOnly - gates the "+ Nouvelle database" toolbar button.
+    public bool IsAdmin => _session.IsAdmin;
 
     public ObservableRangeCollection<VaultTreeRow> Rows { get; } = new();
     public ObservableRangeCollection<VaultTreeRow> NodeEntries { get; } = new();
@@ -117,6 +124,42 @@ public partial class VaultTreeViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    // Admin-only entry point for creating a brand-new top-level database - the only prior path
+    // was the roundabout "Gestion des utilisateurs > select a user > Ajouter un accès > Nouveau
+    // groupe" flow. The group key must be generated and wrapped here, client-side, with the
+    // creator's own public key - the server never sees it, so this can't be done from outside a
+    // real unlocked session.
+    [RelayCommand]
+    private async Task CreateDatabaseAsync()
+    {
+        var page = Application.Current?.Windows[0].Page;
+        if (page is null) return;
+
+        var name = await page.DisplayPromptAsync("Nouvelle database", "Nom de la database (ex: Client Dupont)");
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        var keyMaterial = await _api.GetKeyMaterialAsync();
+        if (keyMaterial is null)
+        {
+            await page.DisplayAlert("Erreur", "Connexion requise pour créer une database.", "OK");
+            return;
+        }
+
+        var tempId = Guid.NewGuid();
+        var (_, newKey) = _session.CreateNewGroupKey(tempId);
+        var wrappedForSelf = RsaKeyWrapping.WrapKey(keyMaterial.PublicKey, newKey);
+
+        var createdGroup = await _api.CreateSiteGroupAsync(new CreateSiteGroupRequest(name, null, wrappedForSelf));
+        if (createdGroup is null)
+        {
+            await page.DisplayAlert("Erreur", "Impossible de créer la database.", "OK");
+            return;
+        }
+
+        _session.GetOrUnwrapGroupKey(createdGroup.Id, wrappedForSelf);
+        await LoadAsync();
     }
 
     // Recursively appends the already-expanded subtree under (group, parentFolderId). Only
@@ -235,6 +278,38 @@ public partial class VaultTreeViewModel : ObservableObject
             ? BuildEntryRows(_groupsById[row.GroupId], row.Id, depth: 0, row.CanWrite)
             : new List<VaultTreeRow>();
         NodeEntries.ReplaceAll(entries);
+
+        CanCreateRootFolder = row.Kind == TreeRowKind.Group && row.CanWrite
+            && !_foldersByParent[null].Any(s => s.SiteGroupId == row.GroupId);
+    }
+
+    // One-click fallback for a database with no folders yet - the right-click "Ajouter un
+    // dossier" menu on the row itself works too, but isn't obvious once the empty-state buttons
+    // were removed from the tree rows.
+    [RelayCommand]
+    private async Task CreateRootFolderAsync()
+    {
+        if (SelectedNode is not { Kind: TreeRowKind.Group } row) return;
+
+        var created = await _api.CreateSiteAsync(row.GroupId, new UpsertSiteRequest("Racine", null, null, null));
+        if (created is null)
+        {
+            var page = Application.Current?.Windows[0].Page;
+            if (page is not null) await page.DisplayAlert("Erreur", "Impossible de créer le dossier (êtes-vous en ligne ?).", "OK");
+            return;
+        }
+
+        await _cache.UpsertSitesAsync(new[]
+        {
+            new CachedSite
+            {
+                Id = created.Id, SiteGroupId = row.GroupId, ParentSiteId = created.ParentSiteId,
+                Name = created.Name, Url = created.Url, Notes = created.Notes, UpdatedAt = created.UpdatedAt
+            }
+        });
+
+        row.IsExpanded = true;
+        await LoadAsync();
     }
 
     // Single click in the right-hand entries list: shows the entry's detail (read-only, with a

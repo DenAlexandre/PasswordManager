@@ -6,6 +6,7 @@
              x:DataType="vm:VaultTreeViewModel"
              Title="Databases">
     <ContentPage.ToolbarItems>
+        <ToolbarItem x:Name="CreateDatabaseToolbarItem" Text="+ Nouvelle database" Command="{Binding CreateDatabaseCommand}" />
         <ToolbarItem Text="Déconnexion" Command="{Binding LogoutCommand}" />
     </ContentPage.ToolbarItems>
 
@@ -68,10 +69,15 @@
                 <Label Grid.Row="0" Text="Sélectionnez une database ou un dossier à gauche." TextColor="Gray"
                        IsVisible="{Binding HasSelectedNode, Converter={StaticResource InvertedBoolConverter}}" />
 
-                <VerticalStackLayout Grid.Row="0" IsVisible="{Binding HasSelectedNode}">
+                <VerticalStackLayout Grid.Row="0" Spacing="8" IsVisible="{Binding HasSelectedNode}">
                     <Label Text="{Binding SelectedNode.Name}" FontSize="18" FontAttributes="Bold" />
                     <Label Text="{Binding SelectedNode.Subtitle}" TextColor="Gray" FontSize="12"
                            IsVisible="{Binding SelectedNode.Subtitle, Converter={StaticResource StringNotEmptyConverter}}" />
+                    <VerticalStackLayout Spacing="4" IsVisible="{Binding CanCreateRootFolder}">
+                        <Label Text="Cette database ne contient encore aucun dossier." TextColor="Gray" FontSize="12" />
+                        <Button Text="Créer un dossier « Racine »" HorizontalOptions="Start"
+                                Command="{Binding CreateRootFolderCommand}" />
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
 
                 <CollectionView Grid.Row="1" ItemsSource="{Binding NodeEntries}" SelectionMode="None"

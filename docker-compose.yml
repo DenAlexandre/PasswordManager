@@ -25,6 +25,9 @@ services:
       db:
         condition: service_healthy
     environment:
+      # This compose file is the local-dev stack only (production uses a separate Portainer
+      # git-stack deploy, per README) - safe to always run it as Development.
+      ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Default: "Host=db;Port=5432;Database=${POSTGRES_DB:-passwordmanager};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
       Jwt__Secret: ${JWT_SECRET:?JWT_SECRET must be set in .env}
       Jwt__Issuer: PasswordManager
