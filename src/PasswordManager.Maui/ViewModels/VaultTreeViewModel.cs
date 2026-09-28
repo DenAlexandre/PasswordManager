@@ -159,6 +159,12 @@ public partial class VaultTreeViewModel : ObservableObject
         }
 
         _session.GetOrUnwrapGroupKey(createdGroup.Id, wrappedForSelf);
+
+        // Every database gets a "Racine" folder from the start - best-effort: if this particular
+        // step fails (e.g. connection drop right here), the "Créer un dossier « Racine »" button
+        // in the empty-state right pane still covers it.
+        await CreateFolderAsync(createdGroup.Id, "Racine", null, null);
+
         await LoadAsync();
     }
 
@@ -283,15 +289,15 @@ public partial class VaultTreeViewModel : ObservableObject
             && !_foldersByParent[null].Any(s => s.SiteGroupId == row.GroupId);
     }
 
-    // One-click fallback for a database with no folders yet - the right-click "Ajouter un
-    // dossier" menu on the row itself works too, but isn't obvious once the empty-state buttons
-    // were removed from the tree rows.
+    // Fallback for a database that predates auto-created root folders, or whose "Racine" folder
+    // was since deleted - the right-click "Ajouter un dossier" menu on the row itself works too,
+    // but isn't obvious once the empty-state buttons were removed from the tree rows.
     [RelayCommand]
     private async Task CreateRootFolderAsync()
     {
         if (SelectedNode is not { Kind: TreeRowKind.Group } row) return;
 
-        var created = await _api.CreateSiteAsync(row.GroupId, new UpsertSiteRequest("Racine", null, null, null));
+        var created = await CreateFolderAsync(row.GroupId, "Racine", null, null);
         if (created is null)
         {
             var page = Application.Current?.Windows[0].Page;
@@ -299,17 +305,26 @@ public partial class VaultTreeViewModel : ObservableObject
             return;
         }
 
+        row.IsExpanded = true;
+        await LoadAsync();
+    }
+
+    // Shared by CreateDatabaseAsync (auto-created "Racine"), CreateRootFolderAsync, and
+    // AddFolderAsync - creates the folder server-side and mirrors it into the local cache.
+    private async Task<SiteDto?> CreateFolderAsync(Guid groupId, string name, string? url, Guid? parentSiteId)
+    {
+        var created = await _api.CreateSiteAsync(groupId, new UpsertSiteRequest(name, url, null, parentSiteId));
+        if (created is null) return null;
+
         await _cache.UpsertSitesAsync(new[]
         {
             new CachedSite
             {
-                Id = created.Id, SiteGroupId = row.GroupId, ParentSiteId = created.ParentSiteId,
+                Id = created.Id, SiteGroupId = groupId, ParentSiteId = created.ParentSiteId,
                 Name = created.Name, Url = created.Url, Notes = created.Notes, UpdatedAt = created.UpdatedAt
             }
         });
-
-        row.IsExpanded = true;
-        await LoadAsync();
+        return created;
     }
 
     // Single click in the right-hand entries list: shows the entry's detail (read-only, with a
@@ -350,21 +365,12 @@ public partial class VaultTreeViewModel : ObservableObject
         var url = await page.DisplayPromptAsync("Nouveau dossier", "URL (optionnel)");
 
         var parentSiteId = row.Kind == TreeRowKind.Group ? (Guid?)null : row.Id;
-        var created = await _api.CreateSiteAsync(row.GroupId, new UpsertSiteRequest(name, url, null, parentSiteId));
+        var created = await CreateFolderAsync(row.GroupId, name, url, parentSiteId);
         if (created is null)
         {
             await page.DisplayAlert("Erreur", "Impossible de créer le dossier (êtes-vous en ligne ?).", "OK");
             return;
         }
-
-        await _cache.UpsertSitesAsync(new[]
-        {
-            new CachedSite
-            {
-                Id = created.Id, SiteGroupId = row.GroupId, ParentSiteId = created.ParentSiteId,
-                Name = created.Name, Url = created.Url, Notes = created.Notes, UpdatedAt = created.UpdatedAt
-            }
-        });
 
         row.IsExpanded = true; // captured by LoadAsync's expand-state preservation, revealing the new folder
         await LoadAsync();
