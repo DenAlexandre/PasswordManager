@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PasswordManager.Api.Data;
 using PasswordManager.Api.Dtos;
-using PasswordManager.Api.Models;
-using PasswordManager.Api.Services;
 
 namespace PasswordManager.Api.Controllers;
 
@@ -14,12 +12,10 @@ namespace PasswordManager.Api.Controllers;
 public class AdminUsersController : ApiControllerBase
 {
     private readonly AppDbContext _db;
-    private readonly PasswordHasher _hasher;
 
-    public AdminUsersController(AppDbContext db, PasswordHasher hasher)
+    public AdminUsersController(AppDbContext db)
     {
         _db = db;
-        _hasher = hasher;
     }
 
     [HttpGet]
@@ -31,26 +27,6 @@ public class AdminUsersController : ApiControllerBase
                 u.PublicKey == "" ? null : u.PublicKey))
             .ToListAsync();
         return Ok(users);
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<UserSummaryDto>> Create(CreateUserRequest request)
-    {
-        var email = request.Email.Trim().ToLowerInvariant();
-        if (await _db.Users.AnyAsync(u => u.Email == email))
-            return Conflict("A user with this email already exists.");
-
-        var user = new User
-        {
-            Email = email,
-            PasswordHash = _hasher.Hash(request.TemporaryPassword),
-            IsAdmin = request.IsAdmin,
-            IsActive = true
-        };
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
-
-        return Ok(new UserSummaryDto(user.Id, user.Email, user.IsAdmin, user.IsActive, false, user.CreatedAt, null));
     }
 
     [HttpPut("{id:guid}")]

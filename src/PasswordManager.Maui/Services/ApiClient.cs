@@ -58,6 +58,32 @@ public class ApiClient
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> SetPersonalVaultKeyAsync(SetPersonalVaultKeyRequest request)
+    {
+        var response = await _http.PostAsJsonAsync("api/auth/personal-vault-key", request);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<(bool Success, string? Error)> RegisterAsync(string email, string password)
+    {
+        var response = await _http.PostAsJsonAsync("api/auth/register", new RegisterRequest(email, password));
+        if (response.IsSuccessStatusCode) return (true, null);
+        return (false, await response.Content.ReadAsStringAsync());
+    }
+
+    public async Task<(LoginResponse? Response, string? Error)> VerifyEmailAsync(string email, string code)
+    {
+        var response = await _http.PostAsJsonAsync("api/auth/verify-email", new VerifyEmailRequest(email, code));
+        if (response.IsSuccessStatusCode) return (await response.Content.ReadFromJsonAsync<LoginResponse>(), null);
+        return (null, await response.Content.ReadAsStringAsync());
+    }
+
+    public async Task<bool> ResendVerificationAsync(string email)
+    {
+        var response = await _http.PostAsJsonAsync("api/auth/resend-verification", new ResendVerificationRequest(email));
+        return response.IsSuccessStatusCode;
+    }
+
     // --- Site groups / sync ---
     public Task<List<MySiteGroupDto>?> GetMySiteGroupsAsync() =>
         GetAsync<List<MySiteGroupDto>>("api/sitegroups/mine");
@@ -103,9 +129,6 @@ public class ApiClient
     public Task<List<UserSummaryDto>?> GetUsersAsync() =>
         GetAsync<List<UserSummaryDto>>("api/admin/users");
 
-    public Task<UserSummaryDto?> CreateUserAsync(CreateUserRequest request) =>
-        PostAsync<UserSummaryDto>("api/admin/users", request);
-
     public Task<bool> UpdateUserAsync(Guid id, UpdateUserRequest request) =>
         PutAsync($"api/admin/users/{id}", request);
 
@@ -120,6 +143,14 @@ public class ApiClient
 
     public Task<SiteGroupDto?> CreateSiteGroupAsync(CreateSiteGroupRequest request) =>
         PostAsync<SiteGroupDto>("api/admin/sitegroups", request);
+
+    // Surfaces the server's reason (e.g. "403 - not admin") so restore can report "requires admin" instead of a bare failure.
+    public async Task<(SiteGroupDto? Group, string? Error)> CreateSiteGroupWithReasonAsync(CreateSiteGroupRequest request)
+    {
+        var response = await _http.PostAsJsonAsync("api/admin/sitegroups", request);
+        if (response.IsSuccessStatusCode) return (await response.Content.ReadFromJsonAsync<SiteGroupDto>(), null);
+        return (null, await response.Content.ReadAsStringAsync());
+    }
 
     public Task<bool> UpdateSiteGroupAsync(Guid id, UpdateSiteGroupRequest request) =>
         PutAsync($"api/admin/sitegroups/{id}", request);
@@ -149,6 +180,31 @@ public class ApiClient
     // Role-only change - no re-wrapping needed, the group key stays the same.
     public Task<bool> UpdateAccessRoleAsync(Guid siteGroupId, Guid userId, UpdateAccessRoleRequest request) =>
         PutAsync($"api/admin/sitegroups/{siteGroupId}/access/{userId}", request);
+
+    // --- Personal vault (single-owner, distinct from SiteGroups) ---
+    public Task<List<PersonalPasswordDto>?> GetPersonalPasswordsAsync() =>
+        GetAsync<List<PersonalPasswordDto>>("api/personal-vault/passwords");
+
+    public Task<PersonalPasswordDto?> CreatePersonalPasswordAsync(UpsertPersonalPasswordRequest request) =>
+        PostAsync<PersonalPasswordDto>("api/personal-vault/passwords", request);
+
+    public Task<bool> UpdatePersonalPasswordAsync(Guid id, UpsertPersonalPasswordRequest request) =>
+        PutAsync($"api/personal-vault/passwords/{id}", request);
+
+    public Task<bool> DeletePersonalPasswordAsync(Guid id) =>
+        DeleteAsync($"api/personal-vault/passwords/{id}");
+
+    public Task<List<PersonalDocumentDto>?> GetPersonalDocumentsAsync() =>
+        GetAsync<List<PersonalDocumentDto>>("api/personal-vault/documents");
+
+    public Task<PersonalDocumentContentResponse?> GetPersonalDocumentContentAsync(Guid id) =>
+        GetAsync<PersonalDocumentContentResponse>($"api/personal-vault/documents/{id}/content");
+
+    public Task<PersonalDocumentDto?> UploadPersonalDocumentAsync(UploadPersonalDocumentRequest request) =>
+        PostAsync<PersonalDocumentDto>("api/personal-vault/documents", request);
+
+    public Task<bool> DeletePersonalDocumentAsync(Guid id) =>
+        DeleteAsync($"api/personal-vault/documents/{id}");
 
     private async Task<T?> GetAsync<T>(string url)
     {

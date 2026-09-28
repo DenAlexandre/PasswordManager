@@ -10,11 +10,13 @@
         <Label Text="Ce mot de passe ne quitte jamais votre appareil. Il ne peut pas être récupéré en cas d'oubli." FontSize="12" />
         <Grid ColumnDefinitions="*,Auto">
             <Entry Grid.Column="0" Placeholder="Mot de passe maître" Text="{Binding MasterPassword}"
-                   IsPassword="{Binding IsPasswordVisible, Converter={StaticResource InvertedBoolConverter}}" />
+                   IsPassword="{Binding IsPasswordVisible, Converter={StaticResource InvertedBoolConverter}}"
+                   ReturnType="Go" ReturnCommand="{Binding ConfirmCommand}" />
             <Button Grid.Column="1" Text="👁" Padding="8,0" Command="{Binding TogglePasswordVisibleCommand}" />
         </Grid>
         <Entry Placeholder="Confirmer le mot de passe maître" Text="{Binding ConfirmMasterPassword}"
-               IsPassword="{Binding IsPasswordVisible, Converter={StaticResource InvertedBoolConverter}}" IsVisible="{Binding IsSetup}" />
+               IsPassword="{Binding IsPasswordVisible, Converter={StaticResource InvertedBoolConverter}}" IsVisible="{Binding IsSetup}"
+               ReturnType="Go" ReturnCommand="{Binding ConfirmCommand}" />
         <Button Text="Valider" Command="{Binding ConfirmCommand}" />
         <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
         <Label Text="{Binding ErrorMessage}" TextColor="Red" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />

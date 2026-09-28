@@ -9,10 +9,12 @@ public class VaultSession
 {
     private byte[]? _privateKeyDer;
     private readonly Dictionary<Guid, byte[]> _groupKeys = new();
+    private byte[]? _personalVaultKey;
 
     public Guid? UserId { get; private set; }
     public bool IsAdmin { get; private set; }
     public bool IsUnlocked => _privateKeyDer is not null;
+    public byte[]? PersonalVaultKey => _personalVaultKey;
 
     public void SetIdentity(Guid userId, bool isAdmin)
     {
@@ -29,6 +31,22 @@ public class VaultSession
     {
         _privateKeyDer = null;
         _groupKeys.Clear();
+        _personalVaultKey = null;
+    }
+
+    // Distinct from the SiteGroup key-wrap dictionary above by design - the personal vault is a
+    // single-owner concept, never shared, so it doesn't belong in the multi-group cache.
+    public byte[] UnlockPersonalVaultKey(string encryptedPersonalVaultKey)
+    {
+        if (_privateKeyDer is null) throw new InvalidOperationException("Vault is locked.");
+        _personalVaultKey = RsaKeyWrapping.UnwrapKey(_privateKeyDer, encryptedPersonalVaultKey);
+        return _personalVaultKey;
+    }
+
+    public byte[] CreatePersonalVaultKey()
+    {
+        _personalVaultKey = AesGcmCipher.NewKey();
+        return _personalVaultKey;
     }
 
     public byte[] GetOrUnwrapGroupKey(Guid siteGroupId, string encryptedGroupKey)

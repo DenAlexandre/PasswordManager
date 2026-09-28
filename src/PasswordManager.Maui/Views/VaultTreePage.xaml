@@ -4,60 +4,137 @@
              xmlns:vm="clr-namespace:PasswordManager.Maui.ViewModels"
              x:Class="PasswordManager.Maui.Views.VaultTreePage"
              x:DataType="vm:VaultTreeViewModel"
-             Title="Groupes de sites">
+             Title="Databases">
     <ContentPage.ToolbarItems>
         <ToolbarItem Text="Déconnexion" Command="{Binding LogoutCommand}" />
     </ContentPage.ToolbarItems>
+
     <Grid RowDefinitions="Auto,*">
         <Label Grid.Row="0" Text="{Binding ErrorMessage}" TextColor="Red" Padding="16,8"
                IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
-        <RefreshView Grid.Row="1" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
-            <CollectionView ItemsSource="{Binding Rows}" SelectionMode="None">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="vm:VaultTreeRow">
-                        <Grid Padding="{Binding Indent, Converter={StaticResource IndentToThicknessConverter}}"
-                              RowDefinitions="Auto,Auto"
-                              MinimumHeightRequest="44">
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=TapRowCommand}"
-                                    CommandParameter="{Binding .}" />
-                            </Grid.GestureRecognizers>
 
-                            <Grid Grid.Row="0" ColumnDefinitions="20,*,Auto,Auto,Auto,Auto" Padding="0,6">
+        <Grid Grid.Row="1" ColumnDefinitions="340,1,*">
+            <!-- Left: compact groups/folders tree -->
+            <RefreshView Grid.Column="0" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+                <CollectionView ItemsSource="{Binding Rows}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:VaultTreeRow">
+                            <Grid Padding="{Binding Indent, Converter={StaticResource IndentToThicknessConverter}}"
+                                  ColumnDefinitions="20,*" MinimumHeightRequest="34">
+                                <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="#DCE8FA" />
+                                    </DataTrigger>
+                                </Grid.Triggers>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=TapRowCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+
+                                <!-- Windows/Mac Catalyst only - .NET MAUI's ContextFlyout has no Android/iOS
+                                     equivalent, so those platforms currently have no add/rename/delete affordance
+                                     for groups/folders. -->
+                                <FlyoutBase.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="Ajouter un dossier" IsEnabled="{Binding CanAddFolder}"
+                                                        CommandParameter="{Binding .}" Clicked="OnAddFolderClicked" />
+                                        <MenuFlyoutItem Text="Ajouter une entrée" IsEnabled="{Binding CanAddEntry}"
+                                                        CommandParameter="{Binding .}" Clicked="OnAddEntryClicked" />
+                                        <MenuFlyoutItem Text="Renommer" IsEnabled="{Binding CanManageNode}"
+                                                        CommandParameter="{Binding .}" Clicked="OnRenameNodeClicked" />
+                                        <MenuFlyoutItem Text="Supprimer" IsEnabled="{Binding CanManageNode}"
+                                                        CommandParameter="{Binding .}" Clicked="OnDeleteNodeClicked" />
+                                    </MenuFlyout>
+                                </FlyoutBase.ContextFlyout>
+
                                 <Label Grid.Column="0" Text="{Binding Chevron}" FontSize="12" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="{Binding Name}" FontAttributes="{Binding RowFontAttributes}" VerticalOptions="Center" />
-                                <Label Grid.Column="2" Text="{Binding Subtitle}" TextColor="Gray" FontSize="12" Margin="8,0" VerticalOptions="Center"
-                                       IsVisible="{Binding IsEntry, Converter={StaticResource InvertedBoolConverter}}" />
-                                <Button Grid.Column="3" Text="✎" Padding="8,0" IsVisible="{Binding CanManageNode}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=EditNodeCommand}"
-                                        CommandParameter="{Binding .}" />
-                                <Button Grid.Column="4" Text="🗑" Padding="8,0" IsVisible="{Binding CanManageNode}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=DeleteNodeCommand}"
-                                        CommandParameter="{Binding .}" />
-                                <Button Grid.Column="5" Text="+" Padding="8,0" IsVisible="{Binding CanAddChild}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=AddCommand}"
-                                        CommandParameter="{Binding .}" />
+                                <Label Grid.Column="1" Text="{Binding Name}" FontAttributes="{Binding RowFontAttributes}"
+                                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
                             </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </RefreshView>
 
-                            <Grid Grid.Row="1" ColumnDefinitions="20,*,Auto,Auto,Auto" IsVisible="{Binding IsEntry}" Padding="0,0,0,6">
-                                <Label Grid.Column="1" Text="{Binding Subtitle}" FontSize="13" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="{Binding MaskedPassword}" FontFamily="Courier" FontSize="12" TextColor="Gray"
-                                       Margin="0,18,0,0" VerticalOptions="Center" />
-                                <Button Grid.Column="2" Text="👁" Padding="8,0"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=ToggleRevealCommand}"
+            <BoxView Grid.Column="1" WidthRequest="1" Color="LightGray" />
+
+            <!-- Right: selected node summary + its entries + selected entry's full detail.
+                 The entries CollectionView gets a bounded Grid row ("*") rather than living
+                 inside a ScrollView - nesting a CollectionView in a ScrollView forces MAUI to
+                 realize every item to measure a "natural" height, which disables virtualization
+                 and makes the list very tall and slow to update on selection. -->
+            <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto" Padding="16" RowSpacing="8">
+                <Label Grid.Row="0" Text="Sélectionnez une database ou un dossier à gauche." TextColor="Gray"
+                       IsVisible="{Binding HasSelectedNode, Converter={StaticResource InvertedBoolConverter}}" />
+
+                <VerticalStackLayout Grid.Row="0" IsVisible="{Binding HasSelectedNode}">
+                    <Label Text="{Binding SelectedNode.Name}" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="{Binding SelectedNode.Subtitle}" TextColor="Gray" FontSize="12"
+                           IsVisible="{Binding SelectedNode.Subtitle, Converter={StaticResource StringNotEmptyConverter}}" />
+                </VerticalStackLayout>
+
+                <CollectionView Grid.Row="1" ItemsSource="{Binding NodeEntries}" SelectionMode="None"
+                                 IsVisible="{Binding IsSelectedNodeFolder}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:VaultTreeRow">
+                            <Grid Padding="8,8" ColumnDefinitions="*">
+                                <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="#DCE8FA" />
+                                    </DataTrigger>
+                                </Grid.Triggers>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer NumberOfTapsRequired="1"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=SelectEntryCommand}"
                                         CommandParameter="{Binding .}" />
-                                <Button Grid.Column="3" Text="Copier" Padding="8,0"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=CopyPasswordCommand}"
+                                    <TapGestureRecognizer NumberOfTapsRequired="2"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=EditEntryCommand}"
                                         CommandParameter="{Binding .}" />
-                                <Button Grid.Column="4" Text="🗑" Padding="8,0" IsVisible="{Binding CanWrite}"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:VaultTreeViewModel}}, Path=DeleteEntryCommand}"
-                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <VerticalStackLayout Grid.Column="0">
+                                    <Label Text="{Binding Name}" FontSize="14" />
+                                    <Label Text="{Binding Username}" FontSize="11" TextColor="Gray" />
+                                </VerticalStackLayout>
                             </Grid>
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </RefreshView>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <!-- Selected entry detail - double-click a row above (or the header here) also opens the edit page -->
+                <VerticalStackLayout Grid.Row="2" Spacing="8" IsVisible="{Binding HasSelectedEntry}">
+                    <BoxView HeightRequest="1" Color="LightGray" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="{Binding SelectedEntry.Name}" FontSize="16" FontAttributes="Bold">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer NumberOfTapsRequired="2"
+                                    Command="{Binding EditEntryCommand}" CommandParameter="{Binding SelectedEntry}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <Button Grid.Column="1" Text="Modifier" Padding="10,4"
+                                Command="{Binding EditEntryCommand}" CommandParameter="{Binding SelectedEntry}" />
+                    </Grid>
+
+                    <Label Text="{Binding SelectedEntry.Username}" FontSize="13" />
+
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <Label Grid.Column="0" Text="{Binding SelectedEntry.MaskedPassword}" FontFamily="Courier" FontSize="13" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="👁" Padding="8,0"
+                                Command="{Binding ToggleRevealCommand}" CommandParameter="{Binding SelectedEntry}" />
+                        <Button Grid.Column="2" Text="Copier" Padding="8,0"
+                                Command="{Binding CopyPasswordCommand}" CommandParameter="{Binding SelectedEntry}" />
+                    </Grid>
+
+                    <Label Text="{Binding SelectedEntry.Url}" FontSize="12" TextColor="Gray"
+                           IsVisible="{Binding SelectedEntry.Url, Converter={StaticResource StringNotEmptyConverter}}" />
+                    <Label Text="{Binding SelectedEntry.Notes}" FontSize="12" TextColor="Gray"
+                           IsVisible="{Binding SelectedEntry.Notes, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                    <Button Text="Supprimer" HorizontalOptions="Start" Padding="10,4"
+                            IsVisible="{Binding SelectedEntry.CanWrite}"
+                            Command="{Binding DeleteEntryCommand}" CommandParameter="{Binding SelectedEntry}" />
+                </VerticalStackLayout>
+            </Grid>
+        </Grid>
     </Grid>
 </ContentPage>

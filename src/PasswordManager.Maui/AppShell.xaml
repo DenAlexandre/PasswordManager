@@ -17,8 +17,20 @@
         <ShellContent ContentTemplate="{DataTemplate views:VaultTreePage}" Route="VaultTreePage" />
     </FlyoutItem>
 
+    <FlyoutItem Title="Coffre personnel" Route="PersonalVaultSection">
+        <ShellContent ContentTemplate="{DataTemplate views:PersonalVaultPage}" Route="PersonalVaultPage" />
+    </FlyoutItem>
+
     <FlyoutItem x:Name="UsersFlyoutItem" Title="Gestion des utilisateurs" Route="AdminUsersSection" IsVisible="False">
         <ShellContent ContentTemplate="{DataTemplate views:AdminUsersPage}" Route="AdminUsersPage" />
+    </FlyoutItem>
+
+    <FlyoutItem x:Name="BackupExportFlyoutItem" Title="Exporter une sauvegarde" Route="BackupExportSection" IsVisible="False">
+        <ShellContent ContentTemplate="{DataTemplate views:BackupExportPage}" Route="BackupExportPage" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Restaurer une sauvegarde" Route="BackupImportSection">
+        <ShellContent ContentTemplate="{DataTemplate views:BackupImportPage}" Route="BackupImportPage" />
     </FlyoutItem>
 
 </Shell>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="PasswordManager.Maui.Views.VerifyEmailPage"
+             Shell.FlyoutBehavior="Disabled"
+             Title="Vérification email">
+    <VerticalStackLayout Padding="24" Spacing="16" VerticalOptions="Center">
+        <Label Text="Vérifiez votre adresse email" FontSize="20" HorizontalOptions="Center" />
+        <Label Text="{Binding Email, StringFormat='Un code a été envoyé à {0}.'}" HorizontalOptions="Center" />
+        <Entry Placeholder="Code à 6 chiffres" Text="{Binding Code}" Keyboard="Numeric"
+               ReturnType="Go" ReturnCommand="{Binding VerifyCommand}" />
+        <Button Text="Vérifier" Command="{Binding VerifyCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+        <Button Text="Renvoyer le code" Command="{Binding ResendCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+        <Label Text="{Binding StatusMessage}" TextColor="Green" IsVisible="{Binding StatusMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+        <Label Text="{Binding ErrorMessage}" TextColor="Red" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+    </VerticalStackLayout>
+</ContentPage>

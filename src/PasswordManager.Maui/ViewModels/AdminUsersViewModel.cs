@@ -113,50 +113,6 @@ public partial class AdminUsersViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task AddUserAsync()
-    {
-        var page = Application.Current?.Windows[0].Page;
-        if (page is null) return;
-
-        var email = await page.DisplayPromptAsync("Nouvel utilisateur", "Adresse email");
-        if (string.IsNullOrWhiteSpace(email)) return;
-        var tempPassword = await page.DisplayPromptAsync("Nouvel utilisateur", "Mot de passe temporaire de connexion");
-        if (string.IsNullOrWhiteSpace(tempPassword)) return;
-        var isAdmin = await page.DisplayAlert("Rôle", "Cet utilisateur doit-il être administrateur ?", "Oui", "Non");
-        var groupName = await page.DisplayPromptAsync("Groupe de sites", "Nom du groupe dédié à cet utilisateur", initialValue: email);
-        if (string.IsNullOrWhiteSpace(groupName)) return;
-
-        var created = await _api.CreateUserAsync(new CreateUserRequest(email, tempPassword, isAdmin));
-        if (created is null)
-        {
-            await page.DisplayAlert("Erreur", "Impossible de créer l'utilisateur (email déjà utilisé ?).", "OK");
-            return;
-        }
-
-        // Create the user's dedicated group right away (wrapped for our own key, as usual - the
-        // new user has no public key yet). Their access must be granted once they've logged in
-        // for the first time and finished vault setup - only then does a public key exist to wrap for.
-        var keyMaterial = await _api.GetKeyMaterialAsync();
-        if (keyMaterial is not null)
-        {
-            var tempId = Guid.NewGuid();
-            var (_, groupKey) = _session.CreateNewGroupKey(tempId);
-            var wrappedForSelf = Crypto.RsaKeyWrapping.WrapKey(keyMaterial.PublicKey, groupKey);
-            var group = await _api.CreateSiteGroupAsync(new CreateSiteGroupRequest(groupName, null, wrappedForSelf));
-            if (group is not null)
-            {
-                _session.GetOrUnwrapGroupKey(group.Id, wrappedForSelf);
-                await page.DisplayAlert("Utilisateur créé",
-                    $"Groupe « {groupName} » créé. Une fois que {email} se sera connecté et aura créé son coffre, " +
-                    "sélectionnez-le dans la liste et cliquez sur « Ajouter un accès » pour finaliser.",
-                    "OK");
-            }
-        }
-
-        await LoadAsync();
-    }
-
-    [RelayCommand]
     private async Task GrantAccessAsync()
     {
         var page = Application.Current?.Windows[0].Page;
@@ -179,22 +135,22 @@ public partial class AdminUsersViewModel : ObservableObject
         var alreadyGrantedIds = SelectedUserAccess.Select(a => a.SiteGroupId).ToHashSet();
         var available = allGroups.Where(g => !alreadyGrantedIds.Contains(g.Id)).ToList();
 
-        const string newGroupOption = "➕ Nouveau groupe";
+        const string newGroupOption = "➕ Nouvelle database";
         var options = available.Select(g => g.Name).Append(newGroupOption).ToArray();
-        var choice = await page.DisplayActionSheet("Choisir un groupe de sites", "Annuler", null, options);
+        var choice = await page.DisplayActionSheet("Choisir une database", "Annuler", null, options);
         if (choice is null || choice == "Annuler") return;
 
         Guid groupId;
         byte[] groupKey;
         if (choice == newGroupOption)
         {
-            var name = await page.DisplayPromptAsync("Nouveau groupe de sites", "Nom du groupe (ex: Client Dupont)");
+            var name = await page.DisplayPromptAsync("Nouvelle database", "Nom de la database (ex: Client Dupont)");
             if (string.IsNullOrWhiteSpace(name)) return;
 
             var keyMaterial = await _api.GetKeyMaterialAsync();
             if (keyMaterial is null)
             {
-                await page.DisplayAlert("Erreur", "Connexion requise pour créer un groupe.", "OK");
+                await page.DisplayAlert("Erreur", "Connexion requise pour créer une database.", "OK");
                 return;
             }
 
@@ -204,7 +160,7 @@ public partial class AdminUsersViewModel : ObservableObject
             var createdGroup = await _api.CreateSiteGroupAsync(new CreateSiteGroupRequest(name, null, wrappedForSelf));
             if (createdGroup is null)
             {
-                await page.DisplayAlert("Erreur", "Impossible de créer le groupe.", "OK");
+                await page.DisplayAlert("Erreur", "Impossible de créer la database.", "OK");
                 return;
             }
 
@@ -222,7 +178,7 @@ public partial class AdminUsersViewModel : ObservableObject
             var ownEntry = mine?.FirstOrDefault(g => g.Id == groupId);
             if (ownEntry is null)
             {
-                await page.DisplayAlert("Erreur", "Vous n'avez pas la clé de ce groupe.", "OK");
+                await page.DisplayAlert("Erreur", "Vous n'avez pas la clé de cette database.", "OK");
                 return;
             }
             groupKey = _session.GetOrUnwrapGroupKey(groupId, ownEntry.EncryptedGroupKey);
@@ -256,7 +212,7 @@ public partial class AdminUsersViewModel : ObservableObject
         if (page is null || SelectedUser is null) return;
 
         var confirm = await page.DisplayAlert("Confirmer",
-            $"Retirer l'accès de {SelectedUser.Email} au groupe « {item.SiteGroupName} » ?", "Retirer", "Annuler");
+            $"Retirer l'accès de {SelectedUser.Email} à la database « {item.SiteGroupName} » ?", "Retirer", "Annuler");
         if (!confirm) return;
 
         var revoked = await _api.RevokeAccessAsync(item.SiteGroupId, SelectedUser.Id);

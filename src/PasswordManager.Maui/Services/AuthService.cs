@@ -30,13 +30,35 @@ public class AuthService
         var response = await _api.LoginAsync(email, password);
         if (response is null) return LoginOutcome.InvalidCredentials;
 
+        await ApplyLoginResponseAsync(response);
+        return response.VaultSetupRequired ? LoginOutcome.VaultSetupRequired : LoginOutcome.NeedsUnlock;
+    }
+
+    // Self-registration: creates the account and emails a verification code. No session yet -
+    // the account can't log in until VerifyEmailAsync succeeds.
+    public Task<(bool Success, string? Error)> RegisterAsync(string email, string password) =>
+        _api.RegisterAsync(email, password);
+
+    public Task<bool> ResendVerificationAsync(string email) => _api.ResendVerificationAsync(email);
+
+    // Verification succeeds with the same LoginResponse shape as Login/SetupAdmin, so this mirrors
+    // LoginAsync's session bookkeeping exactly - the caller then proceeds straight to vault setup.
+    public async Task<(bool Success, string? Error)> VerifyEmailAsync(string email, string code)
+    {
+        var (response, error) = await _api.VerifyEmailAsync(email, code);
+        if (response is null) return (false, error);
+
+        await ApplyLoginResponseAsync(response);
+        return (true, null);
+    }
+
+    private async Task ApplyLoginResponseAsync(LoginResponse response)
+    {
         await SecureStorage.SetAsync(TokenKey, response.AccessToken);
         await SecureStorage.SetAsync(UserIdKey, response.UserId.ToString());
         await SecureStorage.SetAsync(IsAdminKey, response.IsAdmin.ToString());
         _api.SetAccessToken(response.AccessToken);
         _session.SetIdentity(response.UserId, response.IsAdmin);
-
-        return response.VaultSetupRequired ? LoginOutcome.VaultSetupRequired : LoginOutcome.NeedsUnlock;
     }
 
     // Restores a previously authenticated session (app relaunch) without re-entering the login
@@ -68,6 +90,7 @@ public class AuthService
     }
 
     // First-time vault creation: generates the RSA keypair locally and uploads only ciphertext + public key.
+    // Also generates the personal-vault AES key in the same step, wrapped for self only.
     public async Task<bool> SetupVaultAsync(string masterPassword)
     {
         var (publicKeyPem, privateKeyDer) = RsaKeyWrapping.GenerateKeyPair();
@@ -76,9 +99,10 @@ public class AuthService
 
         var masterKey = KeyDerivation.DeriveMasterKey(masterPassword, salt, iterations, memoryKb, parallelism);
         var encryptedPrivateKey = AesGcmCipher.EncryptBytes(masterKey, privateKeyDer);
+        var encryptedPersonalVaultKey = RsaKeyWrapping.WrapKey(publicKeyPem, AesGcmCipher.NewKey());
 
         var ok = await _api.SetupVaultAsync(new VaultSetupRequest(
-            Convert.ToBase64String(salt), iterations, memoryKb, parallelism, publicKeyPem, encryptedPrivateKey));
+            Convert.ToBase64String(salt), iterations, memoryKb, parallelism, publicKeyPem, encryptedPrivateKey, encryptedPersonalVaultKey));
         if (!ok) return false;
 
         await _cache.SaveIdentityAsync(new CachedIdentity
@@ -95,6 +119,7 @@ public class AuthService
         });
 
         _session.Unlock(privateKeyDer);
+        _session.UnlockPersonalVaultKey(encryptedPersonalVaultKey);
         return true;
     }
 
@@ -142,6 +167,12 @@ public class AuthService
             var masterKey = KeyDerivation.DeriveMasterKey(masterPassword, Convert.FromBase64String(salt), iterations, memoryKb, parallelism);
             var privateKeyDer = AesGcmCipher.DecryptBytes(masterKey, encryptedPrivateKey);
             _session.Unlock(privateKeyDer);
+
+            // Only available when online (not cached locally - the personal vault is online-only)
+            // and only once the user has opened it for the first time (lazy-provisioned).
+            if (!string.IsNullOrEmpty(keyMaterial?.EncryptedPersonalVaultKey))
+                _session.UnlockPersonalVaultKey(keyMaterial.EncryptedPersonalVaultKey);
+
             return true;
         }
         catch (System.Security.Cryptography.CryptographicException)

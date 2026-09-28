@@ -83,7 +83,7 @@ public class AdminSiteGroupsController : ApiControllerBase
         var grants = await _db.UserSiteGroupAccesses
             .Where(a => a.SiteGroupId == id)
             .Include(a => a.User)
-            .Select(a => new AccessGrantDto(a.UserId, a.User!.Email, a.SiteGroupId, a.Role, a.GrantedAt))
+            .Select(a => new AccessGrantDto(a.UserId, a.User!.Email, a.SiteGroupId, a.Role, a.GrantedAt, a.EncryptedGroupKey))
             .ToListAsync();
         return Ok(grants);
     }

@@ -33,8 +33,13 @@ public partial class VaultTreeRow : ObservableObject
     [NotifyPropertyChangedFor(nameof(MaskedPassword))]
     private bool isRevealed;
 
+    [ObservableProperty]
+    private bool isSelected;
+
     public bool IsEntry => Kind == TreeRowKind.Entry;
-    public bool CanAddChild => CanWrite && Kind != TreeRowKind.Entry;
+    // Group and Folder rows can both hold sub-folders; only a Folder can directly hold entries.
+    public bool CanAddFolder => CanWrite && Kind != TreeRowKind.Entry;
+    public bool CanAddEntry => CanWrite && Kind == TreeRowKind.Folder;
     public bool CanManageNode => CanWrite && Kind != TreeRowKind.Entry;
     public string Chevron => Kind == TreeRowKind.Entry ? string.Empty : IsExpanded ? "▾" : "▸";
     public double Indent => 12 + Depth * 24;

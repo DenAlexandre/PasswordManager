@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PasswordManager.Maui.ViewModels"
+             x:Class="PasswordManager.Maui.Views.PersonalVaultPage"
+             x:DataType="vm:PersonalVaultViewModel"
+             Title="Coffre personnel">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,*" Padding="16" RowSpacing="6">
+        <Label Grid.Row="0" Text="{Binding ErrorMessage}" TextColor="Red"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+            <Label Grid.Column="0" Text="Mots de passe" FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="+ Ajouter" Padding="10,4" Command="{Binding AddPasswordCommand}" />
+        </Grid>
+
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Passwords}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:PersonalPasswordItem">
+                    <VerticalStackLayout Padding="4,8" Spacing="2">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <VerticalStackLayout Grid.Column="0">
+                                <Label Text="{Binding Label}" FontSize="14" />
+                                <Label Text="{Binding Username}" FontSize="11" TextColor="Gray" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="✎" Padding="6,0"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PersonalVaultViewModel}}, Path=EditPasswordCommand}"
+                                    CommandParameter="{Binding .}" />
+                            <Button Grid.Column="2" Text="🗑" Padding="6,0"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PersonalVaultViewModel}}, Path=DeletePasswordCommand}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <Label Grid.Column="0" Text="{Binding MaskedPassword}" FontFamily="Courier" FontSize="12" TextColor="Gray" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="👁" Padding="6,0"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PersonalVaultViewModel}}, Path=ToggleRevealCommand}"
+                                    CommandParameter="{Binding .}" />
+                            <Button Grid.Column="2" Text="Copier" Padding="6,0"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PersonalVaultViewModel}}, Path=CopyPasswordCommand}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+            <Label Grid.Column="0" Text="Documents" FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="+ Ajouter" Padding="10,4" Command="{Binding AddDocumentCommand}" />
+        </Grid>
+
+        <CollectionView Grid.Row="4" ItemsSource="{Binding Documents}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:PersonalDocumentItem">
+                    <Grid Padding="4,8" ColumnDefinitions="*,Auto,Auto">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PersonalVaultViewModel}}, Path=OpenDocumentCommand}"
+                                CommandParameter="{Binding .}" />
+                        </Grid.GestureRecognizers>
+                        <VerticalStackLayout Grid.Column="0">
+                            <Label Text="{Binding FileName}" FontSize="14" />
+                            <Label Text="{Binding SizeLabel}" FontSize="11" TextColor="Gray" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="Ouvrir" Padding="8,0"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PersonalVaultViewModel}}, Path=OpenDocumentCommand}"
+                                CommandParameter="{Binding .}" />
+                        <Button Grid.Column="2" Text="🗑" Padding="6,0"
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PersonalVaultViewModel}}, Path=DeleteDocumentCommand}"
+                                CommandParameter="{Binding .}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <ActivityIndicator Grid.Row="2" Grid.RowSpan="3" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+    </Grid>
+</ContentPage>

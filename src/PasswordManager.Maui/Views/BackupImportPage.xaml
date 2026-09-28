@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PasswordManager.Maui.ViewModels"
+             x:Class="PasswordManager.Maui.Views.BackupImportPage"
+             x:DataType="vm:BackupImportViewModel"
+             Title="Restaurer une sauvegarde">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Choisir un fichier" Command="{Binding PickFileCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <Label TextColor="Gray"
+                   Text="Choisissez un fichier de sauvegarde exporté précédemment. Les databases manquantes ou incomplètes sont pré-sélectionnées." />
+
+            <Label Text="{Binding StatusMessage}" TextColor="Red"
+                   IsVisible="{Binding StatusMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+
+            <CollectionView ItemsSource="{Binding Plan}" SelectionMode="None" IsVisible="{Binding HasPlan}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RestorePlanItem">
+                        <Grid Padding="4,10" ColumnDefinitions="Auto,*">
+                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                                <Label Text="{Binding Name}" FontSize="15" />
+                                <Label Text="{Binding SummaryLabel}" FontSize="11" TextColor="Gray" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Button Text="Restaurer" Command="{Binding ConfirmRestoreCommand}" IsVisible="{Binding HasPlan}" />
+
+            <BoxView HeightRequest="1" Color="LightGray" IsVisible="{Binding HasResults}" Margin="0,8" />
+
+            <Label Text="Résultat" FontAttributes="Bold" IsVisible="{Binding HasResults}" />
+            <CollectionView ItemsSource="{Binding Results}" SelectionMode="None" IsVisible="{Binding HasResults}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RestoreResultItem">
+                        <VerticalStackLayout Padding="4,8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0" Text="{Binding Name}" FontAttributes="Bold" />
+                                <Label Grid.Column="1" Text="{Binding SummaryLabel}" TextColor="Gray" />
+                            </Grid>
+                            <Label Text="{Binding DetailsText}" FontSize="12" TextColor="Gray" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

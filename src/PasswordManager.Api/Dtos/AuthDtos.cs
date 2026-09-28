@@ -16,7 +16,8 @@ public record VaultKeyMaterialResponse(
     int KdfMemoryKb,
     int KdfParallelism,
     string PublicKey,
-    string EncryptedPrivateKey);
+    string EncryptedPrivateKey,
+    string? EncryptedPersonalVaultKey);
 
 public record VaultSetupRequest(
     string MasterPasswordSalt,
@@ -24,4 +25,14 @@ public record VaultSetupRequest(
     int KdfMemoryKb,
     int KdfParallelism,
     string PublicKey,
-    string EncryptedPrivateKey);
+    string EncryptedPrivateKey,
+    string EncryptedPersonalVaultKey);
+
+// Self-registration: creates the user unverified and emails a 6-digit code (see AuthController.Register).
+public record RegisterRequest(string Email, string Password);
+
+public record VerifyEmailRequest(string Email, string Code);
+
+public record ResendVerificationRequest(string Email);
+
+public record SetPersonalVaultKeyRequest(string EncryptedPersonalVaultKey);

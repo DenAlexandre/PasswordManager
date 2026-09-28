@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using CommunityToolkit.Maui;
+using CommunityToolkit.Maui.Storage;
+using Microsoft.Extensions.Logging;
 using PasswordManager.Maui.Data;
 using PasswordManager.Maui.Services;
 using PasswordManager.Maui.ViewModels;
@@ -26,6 +28,7 @@ public static class MauiProgram
 		var builder = MauiApp.CreateBuilder();
 		builder
 			.UseMauiApp<App>()
+			.UseMauiCommunityToolkit()
 			.ConfigureFonts(fonts =>
 			{
 				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -48,9 +51,16 @@ public static class MauiProgram
 		builder.Services.AddSingleton<LocalCacheDb>();
 		builder.Services.AddSingleton<AuthService>();
 		builder.Services.AddSingleton<SyncService>();
+		builder.Services.AddSingleton<IFileSaver>(FileSaver.Default);
+		builder.Services.AddSingleton<BackupService>();
+		builder.Services.AddSingleton<DocumentService>();
 
 		builder.Services.AddTransient<LoginViewModel>();
 		builder.Services.AddTransient<LoginPage>();
+		builder.Services.AddTransient<RegisterViewModel>();
+		builder.Services.AddTransient<RegisterPage>();
+		builder.Services.AddTransient<VerifyEmailViewModel>();
+		builder.Services.AddTransient<VerifyEmailPage>();
 		builder.Services.AddTransient<VaultUnlockViewModel>();
 		builder.Services.AddTransient<VaultUnlockPage>();
 		builder.Services.AddTransient<VaultTreeViewModel>();
@@ -59,6 +69,14 @@ public static class MauiProgram
 		builder.Services.AddTransient<CredentialEditPage>();
 		builder.Services.AddTransient<AdminUsersViewModel>();
 		builder.Services.AddTransient<AdminUsersPage>();
+		builder.Services.AddTransient<BackupExportViewModel>();
+		builder.Services.AddTransient<BackupExportPage>();
+		builder.Services.AddTransient<BackupImportViewModel>();
+		builder.Services.AddTransient<BackupImportPage>();
+		builder.Services.AddTransient<PersonalVaultViewModel>();
+		builder.Services.AddTransient<PersonalVaultPage>();
+		builder.Services.AddTransient<PersonalPasswordEditViewModel>();
+		builder.Services.AddTransient<PersonalPasswordEditPage>();
 
 		return builder.Build();
 	}

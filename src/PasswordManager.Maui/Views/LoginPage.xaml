@@ -12,6 +12,7 @@
             <Button Grid.Column="1" Text="👁" Padding="8,0" Command="{Binding TogglePasswordVisibleCommand}" />
         </Grid>
         <Button Text="Se connecter" Command="{Binding LoginCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+        <Button Text="Créer un compte" Command="{Binding GoToRegisterCommand}" BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=Blue, Dark=LightBlue}" />
         <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
         <Label Text="{Binding ErrorMessage}" TextColor="Red" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
     </VerticalStackLayout>

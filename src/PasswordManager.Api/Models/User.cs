@@ -20,5 +20,15 @@ public class User
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    // Self-registration email verification (see AuthController.Register/VerifyEmail).
+    public bool IsEmailVerified { get; set; }
+    public string? EmailVerificationCode { get; set; }
+    public DateTimeOffset? EmailVerificationCodeExpiresAt { get; set; }
+    public int EmailVerificationAttempts { get; set; }
+
+    // RSA-wrapped (for this user's own public key) AES-256 key for their personal vault -
+    // a single-owner space distinct from shared SiteGroups, never wrapped for anyone else.
+    public string? EncryptedPersonalVaultKey { get; set; }
+
     public List<UserSiteGroupAccess> SiteGroupAccesses { get; set; } = new();
 }

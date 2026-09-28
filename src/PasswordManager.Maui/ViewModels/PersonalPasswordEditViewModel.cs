@@ -1,22 +1,20 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PasswordManager.Maui.Crypto;
-using PasswordManager.Maui.Data;
 using PasswordManager.Maui.Models;
 using PasswordManager.Maui.Services;
 
 namespace PasswordManager.Maui.ViewModels;
 
-// Single modal covering everything a KeePass-style entry needs at once (label, username,
-// password, URL, notes) instead of a chain of separate prompts - used for both create and edit.
-public partial class CredentialEditViewModel : ObservableObject, IQueryAttributable
+// Personal-vault counterpart to CredentialEditPage - same fields/flow, but encrypts with the
+// user's personal-vault key (VaultSession.PersonalVaultKey) and talks to PersonalVaultController
+// instead of a Site/SiteGroup. Kept separate from CredentialEditViewModel rather than generalizing
+// it, since entangling the two scoping models would complicate both for no real benefit.
+public partial class PersonalPasswordEditViewModel : ObservableObject, IQueryAttributable
 {
     private readonly ApiClient _api;
-    private readonly LocalCacheDb _cache;
     private readonly VaultSession _session;
 
-    private Guid _siteId;
-    private Guid _siteGroupId;
     private Guid? _editingId;
 
     [ObservableProperty] private string title = "Nouveau mot de passe";
@@ -29,18 +27,14 @@ public partial class CredentialEditViewModel : ObservableObject, IQueryAttributa
     [ObservableProperty] private string? errorMessage;
     [ObservableProperty] private bool isBusy;
 
-    public CredentialEditViewModel(ApiClient api, LocalCacheDb cache, VaultSession session)
+    public PersonalPasswordEditViewModel(ApiClient api, VaultSession session)
     {
         _api = api;
-        _cache = cache;
         _session = session;
     }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        _siteId = (Guid)query["siteId"];
-        _siteGroupId = (Guid)query["siteGroupId"];
-
         if (query.TryGetValue("item", out var itemObj) && itemObj is CredentialItem item)
         {
             _editingId = item.Id;
@@ -65,46 +59,40 @@ public partial class CredentialEditViewModel : ObservableObject, IQueryAttributa
             ErrorMessage = "Le libellé est requis.";
             return;
         }
+        if (_session.PersonalVaultKey is not { } key)
+        {
+            ErrorMessage = "Coffre personnel non initialisé.";
+            return;
+        }
 
         IsBusy = true;
         ErrorMessage = null;
         try
         {
-            var groups = await _cache.GetSiteGroupsAsync();
-            var group = groups.FirstOrDefault(g => g.Id == _siteGroupId);
-            if (group is null)
-            {
-                ErrorMessage = "Database introuvable.";
-                return;
-            }
-            var groupKey = _session.GetOrUnwrapGroupKey(group.Id, group.EncryptedGroupKey);
-
-            var request = new UpsertCredentialRequest(
-                AesGcmCipher.Encrypt(groupKey, Label),
-                AesGcmCipher.Encrypt(groupKey, Username),
-                AesGcmCipher.Encrypt(groupKey, Password),
-                string.IsNullOrEmpty(Url) ? null : AesGcmCipher.Encrypt(groupKey, Url),
-                string.IsNullOrEmpty(Notes) ? null : AesGcmCipher.Encrypt(groupKey, Notes));
+            var request = new UpsertPersonalPasswordRequest(
+                AesGcmCipher.Encrypt(key, Label),
+                AesGcmCipher.Encrypt(key, Username),
+                AesGcmCipher.Encrypt(key, Password),
+                string.IsNullOrEmpty(Url) ? null : AesGcmCipher.Encrypt(key, Url),
+                string.IsNullOrEmpty(Notes) ? null : AesGcmCipher.Encrypt(key, Notes));
 
             if (_editingId is null)
             {
-                var created = await _api.CreateCredentialAsync(_siteId, request);
+                var created = await _api.CreatePersonalPasswordAsync(request);
                 if (created is null)
                 {
                     ErrorMessage = "Impossible d'enregistrer (êtes-vous en ligne ?).";
                     return;
                 }
-                await _cache.UpsertCredentialsAsync(new[] { ToCached(created.Id, request, created.UpdatedAt) });
             }
             else
             {
-                var updated = await _api.UpdateCredentialAsync(_siteId, _editingId.Value, request);
+                var updated = await _api.UpdatePersonalPasswordAsync(_editingId.Value, request);
                 if (!updated)
                 {
-                    ErrorMessage = "Impossible d'enregistrer (droits insuffisants ou hors-ligne).";
+                    ErrorMessage = "Impossible d'enregistrer (êtes-vous en ligne ?).";
                     return;
                 }
-                await _cache.UpsertCredentialsAsync(new[] { ToCached(_editingId.Value, request, DateTimeOffset.UtcNow) });
             }
 
             await Shell.Current.GoToAsync("..");
@@ -121,16 +109,4 @@ public partial class CredentialEditViewModel : ObservableObject, IQueryAttributa
 
     [RelayCommand]
     private async Task CancelAsync() => await Shell.Current.GoToAsync("..");
-
-    private CachedCredential ToCached(Guid id, UpsertCredentialRequest request, DateTimeOffset updatedAt) => new()
-    {
-        Id = id,
-        SiteId = _siteId,
-        EncryptedLabel = request.EncryptedLabel,
-        EncryptedUsername = request.EncryptedUsername,
-        EncryptedPassword = request.EncryptedPassword,
-        EncryptedUrl = request.EncryptedUrl,
-        EncryptedNotes = request.EncryptedNotes,
-        UpdatedAt = updatedAt
-    };
 }

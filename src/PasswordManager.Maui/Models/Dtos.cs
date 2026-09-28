@@ -7,11 +7,16 @@ public record LoginResponse(string AccessToken, Guid UserId, bool IsAdmin, bool 
 
 public record VaultKeyMaterialResponse(
     string MasterPasswordSalt, int KdfIterations, int KdfMemoryKb, int KdfParallelism,
-    string PublicKey, string EncryptedPrivateKey);
+    string PublicKey, string EncryptedPrivateKey, string? EncryptedPersonalVaultKey);
 
 public record VaultSetupRequest(
     string MasterPasswordSalt, int KdfIterations, int KdfMemoryKb, int KdfParallelism,
-    string PublicKey, string EncryptedPrivateKey);
+    string PublicKey, string EncryptedPrivateKey, string EncryptedPersonalVaultKey);
+
+public record RegisterRequest(string Email, string Password);
+public record VerifyEmailRequest(string Email, string Code);
+public record ResendVerificationRequest(string Email);
+public record SetPersonalVaultKeyRequest(string EncryptedPersonalVaultKey);
 
 public record MySiteGroupDto(Guid Id, string Name, string? Description, AccessRole Role, string EncryptedGroupKey);
 
@@ -34,12 +39,21 @@ public record SyncResponse(DateTimeOffset ServerTime, List<SyncSiteGroupDto> Sit
 
 // Admin
 public record UserSummaryDto(Guid Id, string Email, bool IsAdmin, bool IsActive, bool VaultSetUp, DateTimeOffset CreatedAt, string? PublicKey);
-public record CreateUserRequest(string Email, string TemporaryPassword, bool IsAdmin);
 public record UpdateUserRequest(bool? IsAdmin, bool? IsActive);
 public record SiteGroupDto(Guid Id, string Name, string? Description, DateTimeOffset UpdatedAt);
 public record CreateSiteGroupRequest(string Name, string? Description, string EncryptedGroupKeyForCreator);
 public record UpdateSiteGroupRequest(string Name, string? Description);
-public record AccessGrantDto(Guid UserId, string UserEmail, Guid SiteGroupId, AccessRole Role, DateTimeOffset GrantedAt);
+public record AccessGrantDto(Guid UserId, string UserEmail, Guid SiteGroupId, AccessRole Role, DateTimeOffset GrantedAt, string EncryptedGroupKey);
 public record GrantAccessRequest(Guid UserId, AccessRole Role, string EncryptedGroupKey);
 public record UpdateAccessRoleRequest(AccessRole Role);
 public record UserAccessDto(Guid SiteGroupId, string SiteGroupName, AccessRole Role);
+
+// Personal vault - single-owner, distinct from the shared SiteGroup model above.
+public record PersonalPasswordDto(
+    Guid Id, string EncryptedLabel, string EncryptedUsername,
+    string EncryptedPassword, string? EncryptedUrl, string? EncryptedNotes, DateTimeOffset UpdatedAt);
+public record UpsertPersonalPasswordRequest(
+    string EncryptedLabel, string EncryptedUsername, string EncryptedPassword, string? EncryptedUrl, string? EncryptedNotes);
+public record PersonalDocumentDto(Guid Id, string EncryptedFileName, string ContentType, long FileSizeBytes, DateTimeOffset UpdatedAt);
+public record UploadPersonalDocumentRequest(string EncryptedFileName, string EncryptedContent, string ContentType, long FileSizeBytes);
+public record PersonalDocumentContentResponse(Guid Id, string EncryptedContent);

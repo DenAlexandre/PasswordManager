@@ -23,6 +23,9 @@ public partial class LoginViewModel : ObservableObject
     private void TogglePasswordVisible() => IsPasswordVisible = !IsPasswordVisible;
 
     [RelayCommand]
+    private async Task GoToRegisterAsync() => await Shell.Current.GoToAsync(nameof(Views.RegisterPage));
+
+    [RelayCommand]
     private async Task LoginAsync()
     {
         if (IsBusy) return;

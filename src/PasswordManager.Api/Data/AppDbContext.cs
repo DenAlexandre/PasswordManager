@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     public DbSet<Credential> Credentials => Set<Credential>();
     public DbSet<UserSiteGroupAccess> UserSiteGroupAccesses => Set<UserSiteGroupAccess>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<PersonalPassword> PersonalPasswords => Set<PersonalPassword>();
+    public DbSet<PersonalDocument> PersonalDocuments => Set<PersonalDocument>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,6 +53,22 @@ public class AppDbContext : DbContext
             e.HasOne(a => a.SiteGroup)
                 .WithMany(g => g.UserAccesses)
                 .HasForeignKey(a => a.SiteGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PersonalPassword>(e =>
+        {
+            e.HasOne(p => p.User)
+                .WithMany()
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PersonalDocument>(e =>
+        {
+            e.HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
