@@ -39,9 +39,11 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
+		builder.Services.AddSingleton<ConnectivityService>();
 		builder.Services.AddSingleton(sp =>
 		{
-			var http = new HttpClient();
+			var connectivity = sp.GetRequiredService<ConnectivityService>();
+			var http = new HttpClient(new ConnectivityTrackingHandler(connectivity));
 			var api = new ApiClient(http);
 			api.SetBaseAddress(AppSettings.ApiBaseUrl);
 			return api;

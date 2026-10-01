@@ -5,9 +5,10 @@ namespace PasswordManager.Maui;
 
 public partial class AppShell : Shell
 {
-    public AppShell(VaultSession session)
+    public AppShell(VaultSession session, ConnectivityService connectivity)
     {
         InitializeComponent();
+        BindingContext = connectivity;
 
         Routing.RegisterRoute(nameof(VaultUnlockPage), typeof(VaultUnlockPage));
         Routing.RegisterRoute(nameof(CredentialEditPage), typeof(CredentialEditPage));

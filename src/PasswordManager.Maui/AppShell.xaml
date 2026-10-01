@@ -7,6 +7,26 @@
     Shell.NavBarIsVisible="True"
     Title="Password Manager">
 
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,12,0">
+            <Label
+                Grid.Column="0"
+                Text="{Binding Path=Title, Source={RelativeSource AncestorType={x:Type Shell}}}"
+                TextColor="White"
+                FontSize="18"
+                VerticalOptions="Center" />
+            <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                <BoxView
+                    WidthRequest="10"
+                    HeightRequest="10"
+                    CornerRadius="5"
+                    Color="{Binding StatusColor}"
+                    VerticalOptions="Center" />
+                <Label Text="{Binding StatusText}" TextColor="White" FontSize="13" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </Grid>
+    </Shell.TitleView>
+
     <ShellContent
         Title="Connexion"
         ContentTemplate="{DataTemplate views:LoginPage}"
